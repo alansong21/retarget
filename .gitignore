@@ -49,3 +49,5 @@ keys/*.json
 .Trashes
 ehthumbs.db
 Thumbs.db
+.next/
+node_modules/
