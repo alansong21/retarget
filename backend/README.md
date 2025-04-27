@@ -1,13 +1,13 @@
 # Retarget Backend
 
-Backend service for the Retarget delivery application.
+Backend service for the Retarget delivery application. Supports automated product scraping from Target and Trader Joe's websites.
 
 ## Setup
 
 1. Create a virtual environment:
    ```bash
    python3 -m venv venv
-   source venv/bin/activate
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 
 2. Install dependencies:
@@ -23,7 +23,7 @@ Backend service for the Retarget delivery application.
 
 4. Start the server:
    ```bash
-   python3 wsgi.py
+   FLASK_APP=app:create_app flask run --port=5001
    ```
 
 The server will run on `http://localhost:5001`.
@@ -32,34 +32,45 @@ The server will run on `http://localhost:5001`.
 
 ### Orders API
 
-#### Create Order
-- **Endpoint**: `POST /orders/create`
-- **Description**: Create a new delivery order
+#### Batch Create Orders
+- **Endpoint**: `POST /orders/batch_create`
+- **Description**: Create multiple orders from product URLs
 - **Request Body**:
   ```json
   {
     "buyer_id": 1,
-    "store_name": "Store Name",
-    "item_list": [
+    "delivery_address": "123 Test St, San Francisco, CA 94105",
+    "products": [
       {
-        "item": "Item Name",
-        "qty": 1
+        "url": "https://www.target.com/p/product-name/-/A-12345",
+        "quantity": 1
+      },
+      {
+        "url": "https://www.traderjoes.com/home/products/pdp/product-name-12345",
+        "quantity": 2
       }
-    ],
-    "delivery_address": "Delivery Address"
+    ]
   }
   ```
 - **Response**: 
   ```json
   {
-    "message": "Order created successfully",
-    "order_id": 1,
-    "status": "open"
+    "message": "Orders created successfully",
+    "orders": [
+      {
+        "name": "Product Name",
+        "price": "$19.99",
+        "quantity": 1,
+        "store": "Target",
+        "url": "https://www.target.com/p/product-name/-/A-12345"
+      }
+    ]
   }
   ```
 - **Status Codes**:
-  - 201: Order created successfully
-  - 400: Invalid request (missing fields or invalid data)
+  - 201: Orders created successfully
+  - 400: Invalid request
+  - 500: Server error (e.g., scraping failed)
 
 #### Get Available Orders
 - **Endpoint**: `GET /orders/available`
@@ -125,8 +136,8 @@ Orders follow this status flow:
 #### Order
 - `id`: Primary key
 - `buyer_id`: ID of the user who created the order
-- `store_name`: Name of the store
-- `items`: JSON array of items with quantities
+- `store_name`: Name of store (Target or Trader Joe's)
+- `items`: JSON array of items with quantities, prices, and URLs
 - `delivery_address`: Delivery destination
 - `status`: Current order status
 - `created_at`: Creation timestamp
@@ -150,27 +161,24 @@ A Flask-based backend service for the Retarget application, which handles order 
 - Server running on port 5001 (`python3 wsgi.py`)
 - Database initialized with test user (`python3 create_db.py && python3 add_test_user.py`)
 
-### Test Order Lifecycle
+### Testing
 
-1. **Create a New Order**
-   ```bash
-   curl -X POST http://localhost:5001/orders/create \
-   -H "Content-Type: application/json" \
-   -d '{
-     "buyer_id": 1,
-     "store_name": "Trader Joes",
-     "item_list": [
-       {"item": "Bananas", "qty": 1},
-       {"item": "Orange Juice", "qty": 2}
-     ],
-     "delivery_address": "Sproul Hall, UCLA"
-   }'
-   ```
+Use the provided test script to create orders:
 
-2. **View Available Orders**
-   ```bash
-   curl -X GET http://localhost:5001/orders/available
-   ```
+```bash
+python3 test_batch_orders.py
+```
+
+The script provides several test cases:
+1. Target product only
+2. Trader Joe's product only
+3. Both products
+4. Custom product URLs
+
+To view orders:
+```bash
+python3 check_orders.py
+```
 
 3. **Accept an Order** (replace `<order_id>` with actual ID)
    ```bash
@@ -222,17 +230,27 @@ A Flask-based backend service for the Retarget application, which handles order 
 - `add_test_user.py`: Add a test user with ID 1
 
 ### Common Issues
+
 1. **Port Already in Use**
    - The server runs on port 5001 to avoid conflicts with AirPlay
-   - If port 5001 is in use, modify the port in `wsgi.py`
+   - If port 5001 is in use, try a different port:
+     ```bash
+     FLASK_APP=app:create_app flask run --port=5002
+     ```
+   - Update the port in `test_batch_orders.py` to match
 
 2. **Database Errors**
-   - If you get schema errors, delete `app.db` and run `create_db.py` again
-   - Make sure to run `add_test_user.py` after recreating the database
+   - If you get schema errors:
+     ```bash
+     rm app.db
+     python3 create_db.py
+     python3 add_test_user.py
+     ```
 
-3. **Invalid Status Transitions**
-   - Orders must follow the correct status flow:
-     `open -> assigned -> in_progress -> ready_for_pickup -> completed`
+3. **Scraping Issues**
+   - Some products may fail to scrape due to website changes
+   - Check that the product URLs are valid and accessible
+   - Only Target and Trader Joe's URLs are supported
 
 ## Project Structure
 ```
@@ -296,20 +314,23 @@ The API is organized using Flask Blueprints:
 ## Development Guidelines
 
 1. **Database Changes**
-   - Create models in `app/models.py`
-   - Generate migrations: `flask db migrate -m "Description"`
-   - Apply migrations: `flask db upgrade`
+   - Models are defined in `app/models.py`
+   - For schema changes:
+     ```bash
+     flask db migrate -m "Description"
+     flask db upgrade
+     ```
 
 2. **Adding New Routes**
-   - Create new blueprints in `app/routes/`
-   - Register blueprints in `app/__init__.py`
+   - Create blueprints in `app/routes/`
+   - Register in `app/__init__.py`
 
-3. **Configuration**
-   - Environment-specific settings go in `config.py`
-   - Sensitive data should use environment variables
+3. **Scraper Development**
+   - Scraper logic in `app/services/selenium_scraper.py`
+   - Uses Selenium in headless mode
+   - Supports Target and Trader Joe's websites
 
 ## Environment Variables
 
-- `FLASK_APP`: Set to `app:create_app()`
-- `SECRET_KEY`: Application secret key
-- `DATABASE_URL`: Database connection string (defaults to SQLite)
+- `FLASK_APP=app:create_app`
+- `FLASK_DEBUG=1` (optional, for development)
