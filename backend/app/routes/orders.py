@@ -18,7 +18,11 @@ Additional statuses:
 from flask import Blueprint, request, jsonify
 from app.models import db, Order, OrderAssignment
 from datetime import datetime, timedelta, timezone
-import json
+from app.services.selenium_scraper import (
+    scrape_target_product,
+    scrape_trader_joes_product,
+    create_driver
+)
 
 orders_bp = Blueprint('orders', __name__)
 
@@ -30,6 +34,137 @@ def test_route():
         tuple: JSON response with success message and 200 status code
     """
     return jsonify({"message": "Orders blueprint is working"}), 200
+
+@orders_bp.route('/fetch_product_info', methods=['POST'])
+def fetch_product_info():
+    data = request.get_json()
+    product_url = data.get('url')
+
+    if not product_url:
+        return jsonify({"error": "Missing URL"}), 400
+    
+    if not is_valid_retailer_url(product_url):
+        return jsonify({"error": "Invalid retailer URL"}), 400
+
+    try:
+        if 'target.com' in product_url:
+            product_info = scrape_target_product(product_url)
+        elif 'ralphs.com' in product_url:
+            product_info = scrape_ralphs_product(product_url)
+        elif 'traderjoes.com' in product_url:
+            product_info = scrape_trader_joes_product(product_url)
+        else:
+            return jsonify({"error": "Scraper not available for this retailer"}), 400
+
+        return jsonify(product_info), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@orders_bp.route('/batch_create', methods=['POST'])
+def batch_create_orders():
+    """Create multiple orders from a list of product URLs.
+    
+    Expected JSON payload:
+    {
+        "buyer_id": int,          # ID of the user creating the orders
+        "delivery_address": str,  # Delivery destination
+        "products": [             # List of products to order
+            {
+                "url": str,      # Product URL
+                "quantity": int   # Quantity to order
+            }
+        ]
+    }
+    
+    Returns:
+        tuple: JSON response with created orders and status code
+            201: Orders created successfully
+            400: Invalid request
+            500: Server error
+    """
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No JSON data provided"}), 400
+
+        # Validate required fields
+        required_fields = ['buyer_id', 'delivery_address', 'products']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({"error": f"Missing required field: {field}"}), 400
+
+        if not isinstance(data['products'], list) or not data['products']:
+            return jsonify({"error": "Products must be a non-empty list"}), 400
+
+        # Create a driver for scraping
+        driver = create_driver()
+        created_orders = []
+
+        try:
+            # Process each product
+            for product in data['products']:
+                url = product.get('url')
+                quantity = product.get('quantity', 1)
+
+                if not url:
+                    continue
+
+                # Scrape product information
+                try:
+                    if 'target.com' in url:
+                        product_info = scrape_target_product(url, driver)
+                    elif 'traderjoes.com' in url:
+                        product_info = scrape_trader_joes_product(url, driver)
+                    else:
+                        continue
+
+                    # Create order with scraped information
+                    store_name = 'Target' if 'target.com' in url else 'Trader Joes'
+
+                    new_order = Order(
+                        buyer_id=data['buyer_id'],
+                        store_name=store_name,
+                        items=[{
+                            "name": product_info.get('name'),
+                            "quantity": quantity,
+                            "price": product_info.get('price')
+                        }],
+                        delivery_address=data['delivery_address'],
+                        status='open',
+                        expiry_time=datetime.now(timezone.utc) + timedelta(hours=1),
+                        product_page_url=url,
+                        product_image_url=product_info.get('image_url')
+                    )
+
+                    db.session.add(new_order)
+                    created_orders.append({
+                        "url": url,
+                        "name": product_info.get('name'),
+                        "price": product_info.get('price'),
+                        "quantity": quantity,
+                        "store": store_name
+                    })
+
+                except Exception as e:
+                    print(f"Error processing {url}: {str(e)}")
+                    continue
+
+            # Commit all orders
+            db.session.commit()
+
+            return jsonify({
+                "message": "Orders created successfully",
+                "orders": created_orders
+            }), 201
+
+        finally:
+            # Always close the driver
+            driver.quit()
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 @orders_bp.route('/create', methods=['POST'])
 def create_order():
