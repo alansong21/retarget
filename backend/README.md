@@ -1,6 +1,6 @@
-# Retarget Backend
+# Grabbit Backend
 
-Backend service for the Retarget delivery application.
+Backend service for the Grabbit delivery application.
 
 ## Setup
 
@@ -142,7 +142,7 @@ Orders follow this status flow:
 - `accepted_at`: When the carrier accepted
 - `completed_at`: When the order was completed
 
-A Flask-based backend service for the Retarget application, which handles order management and delivery services.
+A Flask-based backend service for the Grabbit application, which handles order management and delivery services.
 
 ## Testing Instructions
 

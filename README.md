@@ -1,4 +1,4 @@
-# retarget
+# Grabbit
 
 LA Hacks 2025 Project 
 Taiyu Chen, Evelyn Do, Jerry Li, Alan Song
@@ -43,7 +43,6 @@ python app.py
 cd frontend
 npm run dev
 ```
-
 
 TODO: 
 "To disable this UI completely, set devIndicators: false in your next.config file."
