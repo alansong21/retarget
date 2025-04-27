@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from app.models import db, Order
+from app.models import db, Order, OrderAssignment
 from datetime import datetime, timedelta, timezone
 import json
 
@@ -69,4 +69,52 @@ def get_available_orders():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@orders_bp.route('/accept/<int:order_id>', methods=['POST'])
+def accept_order(order_id):
+    data = request.get_json()
+
+    try:
+        carrier_id = data['carrier_id']
+
+        # Find the order 
+        order = Order.query.get(order_id)
+
+        if not order:
+            return jsonify({"error": "Order not found"}), 404
+        
+        # Check if order is still open and not expired
+        now = datetime.now(timezone.utc)
+        if order.status != 'open':
+            return jsonify({"error": "Order already assigned or closed"}), 400
+        # Ensure expiry_time is timezone-aware before comparison
+        expiry_time = order.expiry_time.replace(tzinfo=timezone.utc) if order.expiry_time.tzinfo is None else order.expiry_time
+        if expiry_time <= now:
+            return jsonify({"error": "Order has expired"}), 400
+        
+        # Assign carrier to order
+        order.assigned_carrier_id = carrier_id
+        order.status = 'assigned'
+        
+        # Create an OrderAssignment record
+        assignment = OrderAssignment(
+            order_id=order.id,
+            carrier_id=carrier_id,
+            status='assigned'
+        )
+
+        db.session.add(assignment)
+        db.session.commit()
+
+        return jsonify({
+            "message": "Order accepted successfully",
+            "order_id": order.id,
+            "assigned_carrier_id": carrier_id
+        }), 200
+
+    except KeyError as e:
+        return jsonify({"error": f"Missing field {str(e)}"}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+        
         
