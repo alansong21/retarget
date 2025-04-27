@@ -1,4 +1,4 @@
-"""Database models for the Retarget application.
+"""Database models for the Grabbit application.
 
 This module defines the SQLAlchemy models that represent the database schema.
 It includes models for users, orders, and order assignments, establishing

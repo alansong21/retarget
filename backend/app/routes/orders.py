@@ -1,6 +1,6 @@
 """Order Management Routes.
 
-This module contains all the API endpoints for managing orders in the Retarget delivery system.
+This module contains all the API endpoints for managing orders in the Grabbit delivery system.
 It handles order creation, assignment, status updates, and delivery confirmation.
 
 The order lifecycle is as follows:

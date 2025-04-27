@@ -1,4 +1,4 @@
-# retarget
+# Grabbit
 
 LA Hacks 2025 Project 
 Taiyu Chen, Evelyn Do, Jerry Li, Alan Song
@@ -35,7 +35,7 @@ pip install -r requirements.txt
 
 2. Actually start the backend server.
 ```bash
-python3 app.py
+python app.py
 ```
 
 3. Start the front-end server.
@@ -43,7 +43,6 @@ python3 app.py
 cd frontend
 npm run dev
 ```
-
 
 TODO: 
 "To disable this UI completely, set devIndicators: false in your next.config file."

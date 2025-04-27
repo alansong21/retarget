@@ -51,7 +51,7 @@ export default function Home() {
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-gray-900">Retarget</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Grabbit</h1>
             <button className="p-2 rounded-full hover:bg-gray-100">
               <FaUser className="w-6 h-6 text-gray-600" />
             </button>
