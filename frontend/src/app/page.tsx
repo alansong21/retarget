@@ -35,8 +35,43 @@ export default function Home() {
     router.push('/auth');
   };
 
+  const fetchOrders = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+      const response = await fetch(`${apiUrl}/orders/available`);
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(errText || `HTTP ${response.status}`);
+      }
+      const data = await response.json();
+      console.log('Fetched orders from backend:', data);
+      
+      // Map backend order format to frontend Order interface
+      const mappedOrders = data.map((order: any) => ({
+        id: order.order_id.toString(), // Convert to string as our interface expects string
+        store: order.store_name,
+        items: order.items.map((item: any) => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: parseFloat(item.price?.replace('$', '') || '0')
+        })),
+        status: 'pending', // Backend uses 'open', frontend uses 'pending'
+        total: order.total || 0,
+        createdAt: order.expiry_time // Using expiry_time as a proxy for createdAt
+      }));
+      
+      console.log('Mapped orders for frontend:', mappedOrders);
+      setOrders(mappedOrders);
+    } catch (err) {
+      console.error('fetchOrders error:', err);
+      setOrders([]);
+    }
+  };
+
   useEffect(() => {
+    // Fetch products and orders once on mount
     fetchProducts();
+    fetchOrders();
   }, []);
 
   const fetchProducts = async () => {
@@ -83,6 +118,28 @@ export default function Home() {
       order.id === orderId ? { ...order, status: 'completed' } : order
     ));
     toast.success('Order completed!');
+  };
+
+  const createSampleOrder = async () => {
+    try {
+      const response = await fetch('/api/orders/create-sample', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create sample order');
+      }
+
+      const sampleOrder = await response.json();
+      setOrders(prev => [...prev, sampleOrder]);
+      toast.success('Sample order created!');
+    } catch (error) {
+      console.error('Error creating sample order:', error);
+      toast.error('Failed to create sample order');
+    }
   };
 
   const filteredOrders = orders.filter((order: Order) => {
@@ -140,44 +197,76 @@ export default function Home() {
     }
 
     try {
-      const lineItems = Object.values(cartItems).map(item => {
-        const productData: any = {
-          name: item.name,
-          description: `From ${item.store || 'Unknown'}`
-        };
-        
-        // Only add images if there's a valid image URL
-        if (item.image && item.image.trim() !== '') {
-          productData.images = [item.image];
-        }
+      // Create line items for products
+      const getSubtotal = () => {
+        return Object.values(cartItems).reduce((total, item) => {
+          return total + (item.price * item.quantity);
+        }, 0);
+      };
 
-        return {
-          price_data: {
-            currency: 'usd',
-            product_data: productData,
-            unit_amount: Math.round(item.price * 100) // Convert to cents
+      const getDeliveryFee = (subtotal: number) => {
+        return subtotal * 0.15; // 15% delivery fee
+      };
+
+      const subtotal = getSubtotal();
+      const deliveryFee = getDeliveryFee(subtotal);
+      const total = subtotal + deliveryFee;
+
+      // Create line items for products
+      const productLineItems = Object.values(cartItems).map(item => ({
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: item.name,
+            description: `From ${item.store || 'Unknown'}`,
+            images: item.image && item.image.trim() !== '' ? [item.image] : undefined
           },
-          quantity: item.quantity
-        };
+          unit_amount: Math.round(item.price * 100) // Convert to cents
+        },
+        quantity: item.quantity
+      }));
+
+      // Add delivery fee as a line item
+      productLineItems.push({
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: 'Delivery Fee',
+            description: '15% delivery fee',
+            images: []
+          },
+          unit_amount: Math.round(deliveryFee * 100) // Convert to cents
+        },
+        quantity: 1
       });
 
+      // Create checkout session with order data
       const response = await fetch('/api/checkout/create-session', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          items: lineItems,
+          items: productLineItems,
+          cartItems: Object.values(cartItems).map(item => ({
+            id: item.id,
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+            image: item.image,
+            store: item.store || 'Unknown'
+          })),
+          total,
+          userId: user.uid
         }),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create checkout session');
+        throw new Error('Failed to create checkout session');
       }
 
-      const { url } = await response.json();
-      window.location.href = url;
+      const session = await response.json();
+      window.location.href = session.url;
     } catch (error) {
       console.error('Checkout error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to start checkout process');
@@ -286,6 +375,14 @@ export default function Home() {
             >
               Fulfill Orders
             </button>
+            {activeTab === 'fulfill' && (
+              <button
+                onClick={createSampleOrder}
+                className="px-4 py-2 rounded-lg bg-purple-500 text-white hover:bg-purple-600"
+              >
+                Create Sample Order
+              </button>
+            )}
           </div>
           {activeTab === 'buy' && (
             <button

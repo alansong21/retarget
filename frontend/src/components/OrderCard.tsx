@@ -29,7 +29,7 @@ export default function OrderCard({ order, onAccept, onReject, onComplete }: {
   };
 
   return (
-    <div className="border rounded-lg p-6 hover:shadow-lg transition-shadow bg-white">
+    <div className="border rounded-lg p-6 hover:shadow-lg transition-all duration-300 bg-gradient-to-br from-gray-50 to-white hover:from-white hover:to-gray-50">
       {/* Header */}
       <div className="flex justify-between items-start mb-4">
         <div>

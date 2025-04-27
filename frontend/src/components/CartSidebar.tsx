@@ -7,13 +7,12 @@ import toast from 'react-hot-toast';
 
 export default function CartSidebar() {
   const [isOpen, setIsOpen] = useState(false);
-  const { items, updateQuantity, removeItem, getTotalItems, getTotalPrice, clearCart } = useCart();
+  const { items, updateQuantity, removeItem, getTotalItems, getSubtotal, getDeliveryFee, getTotalPrice, clearCart } = useCart();
 
   const handleCheckout = async () => {
     try {
-      // Create line items from cart items
-      // Filter out items with invalid prices and create line items
-      const lineItems = Object.values(items)
+      // Create line items for products
+      const productLineItems = Object.values(items)
         .filter(item => item.price > 0)
         .map(item => ({
           price_data: {
@@ -28,10 +27,25 @@ export default function CartSidebar() {
           quantity: item.quantity
         }));
 
-      if (lineItems.length === 0) {
+      if (productLineItems.length === 0) {
         toast.error('No valid items in cart. Please check item prices.');
         return;
       }
+
+      // Add delivery fee as a separate line item
+      const subtotal = getSubtotal();
+      const deliveryFee = getDeliveryFee();
+      const deliveryLineItem = {
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: 'Delivery Fee',
+            description: '15% delivery fee'
+          },
+          unit_amount: Math.round(deliveryFee * 100)
+        },
+        quantity: 1
+      };
 
       // Create Stripe checkout session
       const response = await fetch('/api/checkout/create-session', {
@@ -39,7 +53,7 @@ export default function CartSidebar() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ items: lineItems }),
+        body: JSON.stringify({ items: [...productLineItems, deliveryLineItem] }),
       });
 
       if (!response.ok) {
@@ -117,12 +131,20 @@ export default function CartSidebar() {
                 ))}
 
                 {/* Total */}
-                <div className="mt-6 pt-4 border-t">
-                  <div className="flex justify-between mb-2 text-gray-800">
+                <div className="mt-6 pt-4 border-t space-y-2">
+                  <div className="flex justify-between text-gray-800">
                     <span>Total Items:</span>
                     <span>{getTotalItems()}</span>
                   </div>
-                  <div className="flex justify-between mb-4 text-gray-900">
+                  <div className="flex justify-between text-gray-600">
+                    <span>Subtotal:</span>
+                    <span>${getSubtotal().toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-600">
+                    <span>Delivery Fee (15%):</span>
+                    <span>${getDeliveryFee().toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between pt-2 border-t">
                     <span className="font-semibold text-gray-900">Total Price:</span>
                     <span className="font-semibold text-gray-900">${getTotalPrice().toFixed(2)}</span>
                   </div>
