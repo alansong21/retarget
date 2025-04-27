@@ -1,6 +1,5 @@
 'use client';
 import Image from "next/image";
-
 import { useState, useMemo } from 'react';
 import { FaUser, FaSearch, FaShoppingCart } from 'react-icons/fa';
 
