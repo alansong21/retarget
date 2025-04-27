@@ -6,6 +6,7 @@ the relationships between buyers, carriers, and delivery orders.
 """
 
 from enum import unique
+
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timezone
 

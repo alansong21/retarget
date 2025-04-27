@@ -7,3 +7,4 @@ firebase-admin
 Werkzeug
 PyJWT
 requests
+psycopg2-binary  # for PostgreSQL
