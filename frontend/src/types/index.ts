@@ -8,11 +8,19 @@ export interface Product {
   url?: string;
 }
 
+export interface OrderItem {
+  name: string;
+  url?: string;
+  quantity: number;
+}
+
 export interface Order {
   id: string;
   store: string;
-  items: string[];
-  status: 'pending' | 'completed' | 'cancelled';
+  items: OrderItem[];
+  status: 'pending' | 'accepted' | 'completed' | 'rejected';
+  total?: number;
+  createdAt?: string;
 }
 
 export interface CartItem extends Product {

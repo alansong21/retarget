@@ -62,17 +62,46 @@ const sampleProducts: Product[] = [
 ];
 
 const mockOrders: Order[] = [
-  { id: '12345', store: 'Target', items: ['Item 1', 'Item 2'], status: 'pending' },
-  { id: '12346', store: 'Trader Joes', items: ['Item 3', 'Item 4'], status: 'pending' },
-  { id: '12347', store: 'Target', items: ['Item 5', 'Item 6'], status: 'pending' },
-  { id: '12348', store: 'Trader Joes', items: ['Item 7', 'Item 8'], status: 'pending' },
-  { id: '12349', store: 'Target', items: ['Item 9', 'Item 10'], status: 'pending' },
+  { 
+    id: '12345',
+    store: 'Target',
+    items: [
+      { name: 'Organic Milk', quantity: 2, url: 'https://target.com/milk' },
+      { name: 'Fresh Eggs', quantity: 1, url: 'https://target.com/eggs' }
+    ],
+    status: 'pending',
+    total: 23.97,
+    createdAt: new Date().toISOString()
+  },
+  { 
+    id: '12346',
+    store: 'Trader Joes',
+    items: [
+      { name: 'Bananas', quantity: 3, url: 'https://traderjoes.com/bananas' },
+      { name: 'Bread', quantity: 2, url: 'https://traderjoes.com/bread' }
+    ],
+    status: 'accepted',
+    total: 15.95,
+    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  },
+  { 
+    id: '12347',
+    store: 'Target',
+    items: [
+      { name: 'Paper Towels', quantity: 1, url: 'https://target.com/paper-towels' },
+      { name: 'Dish Soap', quantity: 2, url: 'https://target.com/dish-soap' }
+    ],
+    status: 'completed',
+    total: 18.47,
+    createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
+  }
 ];
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'buy' | 'fulfill'>('buy');
-  const [orders] = useState<Order[]>(mockOrders);
+  const [orders, setOrders] = useState<Order[]>(mockOrders);
+  const [orderFilter, setOrderFilter] = useState<'all' | 'pending' | 'accepted'>('all');
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -117,10 +146,38 @@ export default function Home() {
       }
     };
 
+  const handleAcceptOrder = (orderId: string) => {
+    setOrders(prev => prev.map(order => 
+      order.id === orderId ? { ...order, status: 'accepted' } : order
+    ));
+    toast.success('Order accepted!');
+  };
+
+  const handleRejectOrder = (orderId: string) => {
+    setOrders(prev => prev.map(order => 
+      order.id === orderId ? { ...order, status: 'rejected' } : order
+    ));
+    toast.error('Order rejected');
+  };
+
+  const handleCompleteOrder = (orderId: string) => {
+    setOrders(prev => prev.map(order => 
+      order.id === orderId ? { ...order, status: 'completed' } : order
+    ));
+    toast.success('Order completed!');
+  };
+
   const filteredOrders = orders.filter((order: Order) => {
+    // First apply status filter
+    if (orderFilter !== 'all' && order.status !== orderFilter) {
+      return false;
+    }
+
+    // Then apply search filter
+    if (!searchQuery) return true;
     const searchLower = searchQuery.toLowerCase();
-    return order.items.some((item: string) =>
-      item.toLowerCase().includes(searchLower)
+    return order.items.some(item => 
+      item.name.toLowerCase().includes(searchLower)
     );
   });
 
@@ -343,13 +400,44 @@ export default function Home() {
                 </button>
               </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-6 max-w-3xl mx-auto">
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-semibold text-gray-900">Available Orders</h2>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setOrderFilter('all')}
+                    className={`px-4 py-2 rounded-lg ${orderFilter === 'all' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}
+                  >
+                    All
+                  </button>
+                  <button
+                    onClick={() => setOrderFilter('pending')}
+                    className={`px-4 py-2 rounded-lg ${orderFilter === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'}`}
+                  >
+                    Pending
+                  </button>
+                  <button
+                    onClick={() => setOrderFilter('accepted')}
+                    className={`px-4 py-2 rounded-lg ${orderFilter === 'accepted' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}
+                  >
+                    Accepted
+                  </button>
+                </div>
+              </div>
               {filteredOrders.length > 0 ? (
-                filteredOrders.map(order => (
-                  <OrderCard key={order.id} order={order} />
-                ))
+                <div className="space-y-6">
+                  {filteredOrders.map(order => (
+                    <OrderCard 
+                      key={order.id} 
+                      order={order}
+                      onAccept={handleAcceptOrder}
+                      onReject={handleRejectOrder}
+                      onComplete={handleCompleteOrder}
+                    />
+                  ))}
+                </div>
               ) : (
-                <div className="text-center text-gray-700">
+                <div className="text-center text-gray-700 py-12 bg-gray-50 rounded-lg">
                   No orders found
                 </div>
               )}
