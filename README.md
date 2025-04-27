@@ -43,6 +43,25 @@ python app.py
 cd frontend
 npm run dev
 ```
+4. Set up Stripe
+Edit the `.env.local` file in the root directory of the frontend project. Add the following content:
+```
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=your_stripe_publishable_key
+STRIPE_SECRET_KEY=your_stripe_secret_key
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
+```
+
+5. Set up Firebase
+Edit the `.env.local` file in the root directory of the frontend project. Add the following content:
+```
+NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key_here
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
+
+
 
 TODO: 
 "To disable this UI completely, set devIndicators: false in your next.config file."

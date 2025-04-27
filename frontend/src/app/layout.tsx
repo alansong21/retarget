@@ -21,6 +21,8 @@ export const metadata: Metadata = {
   },
 };
 
+import { AuthProvider } from '@/context/AuthContext';
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -28,11 +30,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <AuthProvider>
+      <body
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <CartProvider>
           {children}
         </CartProvider>
       </body>
+      </AuthProvider>
     </html>
   );
 }
