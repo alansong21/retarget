@@ -198,15 +198,29 @@ export default function Home() {
             <div className="flex items-center space-x-4">
               <CartSidebar />
               {user ? (
-                <div className="flex items-center space-x-4">
-                  <span className="text-gray-700">{user.displayName || user.email}</span>
-                  <button
-                    onClick={handleSignOut}
-                    className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
-                  >
-                    Sign Out
-                  </button>
-                </div>
+                <button
+                  onClick={() => router.push('/profile')}
+                  className="flex items-center space-x-2 px-4 py-2 bg-white hover:bg-gray-50 text-gray-700 hover:text-gray-900 rounded-lg border border-gray-200 transition-all duration-200 shadow-sm hover:shadow"
+                >
+                  {user.photoURL ? (
+                    <Image
+                      src={user.photoURL}
+                      alt={user.displayName || 'Profile'}
+                      width={32}
+                      height={32}
+                      className="rounded-full"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                      <span>{user.displayName?.[0] || user.email?.[0]}</span>
+                    </div>
+                  )}
+                  <span>
+                    {user.displayName 
+                      ? user.displayName.split(' ')[0] 
+                      : user.email?.split('@')[0]}
+                  </span>
+                </button>
               ) : (
                 <button
                   onClick={() => router.push('/auth')}
