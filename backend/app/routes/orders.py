@@ -116,5 +116,56 @@ def accept_order(order_id):
         return jsonify({"error": f"Missing field {str(e)}"}), 400
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@orders_bp.route('/update_status/<int:order_id>', methods=['POST'])
+def update_order_status(order_id):
+    data = request.get_json()
+
+    try:
+        carrier_id = data['carrier_id']
+        new_status = data['new_status']
+
+        # Find the order
+        order = Order.query.get(order_id)
+
+        if not order:
+            return jsonify({"error": "Order not found"}), 404
+
+        # Check carrier assignment 
+        if order.assigned_carrier_id != carrier_id:
+            return jsonify({"error": "You are not assigned to this order"}), 400
+
+        # Check allowed status transitions
+        valid_transitions = {
+            "assigned": "in_progress",
+            "in_progress": "ready_for_pickup"
+        }
+
+        if order.status not in valid_transitions or valid_transitions[order.status] != new_status:
+            return jsonify({"error": "Invalid status transition"}), 400
+        
+        # Update order status
+        order.status = new_status 
+
+        # Update assignment status too
+        assignment = OrderAssignment.query.filter_by(order_id=order_id, carrier_id=carrier_id).first()
+        if assignment:
+            assignment.status = new_status
+            if new_status == 'ready_for_pickup':
+                assignment.completed_at = datetime.now(timezone.utc)
+            
+        db.session.commit()
+
+        return jsonify({
+            "message": f"Order status updated to {new_status}",
+            "order_id": order.id
+        }), 200
+
+    except KeyError as e:
+        return jsonify({"error": f"Missing field {str(e)}"}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+
         
         
