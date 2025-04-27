@@ -35,7 +35,7 @@ pip install -r requirements.txt
 
 2. Actually start the backend server.
 ```bash
-python3 app.py
+python app.py
 ```
 
 3. Start the front-end server.
