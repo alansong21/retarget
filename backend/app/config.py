@@ -8,7 +8,7 @@ class Config:
     BASE_URL = os.environ.get('BASE_URL') or 'http://localhost:5000'
 
     # Firebase Admin Settings
-    FIREBASE_CREDENTIALS_PATH = os.environ.get('FIREBASE_CREDENTIALS_PATH') or 'keys/serviceAccountKey.json'
+    FIREBASE_CREDENTIALS_PATH = os.environ.get('FIREBASE_CREDENTIALS_PATH') or 'keys/retarget-fc0bf-firebase-adminsdk-fbsvc-cec5f65c24.json'
     UCLA_EMAIL_DOMAIN = 'g.ucla.edu'
 
     # JWT Settings (optional if you add JWT protection yourself later)
