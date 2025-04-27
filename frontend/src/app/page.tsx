@@ -3,88 +3,134 @@
 import Image from "next/image";
 import { useState, useRef, useEffect } from 'react';
 import { FaSearch, FaShoppingCart, FaChevronLeft, FaChevronRight, FaUser } from 'react-icons/fa';
-import OrderCard from '@/components/OrderCard';
+import { useCart, useAuth } from '../contexts';
+import type { Product as ProductType, Order, CartItem } from '../types';
 
-interface Order {
-  id: string;
-  store: string;
-  items: string[];
-  status: string;
-}
+type Product = Omit<ProductType, 'store'> & {
+  store: 'Target' | 'Trader Joes' | undefined;
+};
 
-interface Product {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  image: string;
-}
+import toast from 'react-hot-toast';
+import OrderCard from '../components/OrderCard';
+import AddItemModal from '../components/AddItemModal';
+import CartSidebar from '../components/CartSidebar';
+import { useRouter } from 'next/navigation';
 
 const sampleProducts: Product[] = [
   {
     id: '1',
-    name: 'Fresh Apples',
-    description: 'Crisp and juicy red apples',
-    price: 2.99,
-    image: '/products/apple.jpg'
+    name: 'Sample Product 1',
+    description: 'This is a sample product',
+    price: 19.99,
+    image: 'https://via.placeholder.com/150',
+    store: 'Target',
+    url: 'https://target.com/sample1'
   },
   {
     id: '2',
-    name: 'Whole Grain Bread',
-    description: 'Freshly baked whole grain bread',
-    price: 4.99,
-    image: '/products/bread.jpg'
+    name: 'Sample Product 2',
+    description: 'Another sample product',
+    price: 29.99,
+    image: 'https://via.placeholder.com/150',
+    store: 'Target',
+    url: 'https://target.com/sample2'
   },
   {
     id: '3',
     name: 'Organic Milk',
     description: '1 gallon of organic whole milk',
-    price: 5.99,
-    image: '/products/milk.jpg'
+    price: 0,
+    image: '/products/milk.jpg',
+    store: 'Target'
   },
   {
     id: '4',
     name: 'Fresh Eggs',
     description: 'Farm fresh eggs, dozen',
     price: 3.99,
-    image: '/products/eggs.jpg'
+    image: '/products/eggs.jpg',
+    store: 'Trader Joes'
   },
   {
     id: '5',
     name: 'Chicken Breast',
     description: 'Boneless skinless chicken breast',
     price: 8.99,
-    image: '/products/chicken.jpg'
+    image: '/products/chicken.jpg',
+    store: 'Target'
   },
 ];
 
 const mockOrders: Order[] = [
-  { id: '12345', store: 'Store 1', items: ['Item 1', 'Item 2'], status: 'pending' },
-  { id: '12346', store: 'Store 2', items: ['Item 3', 'Item 4'], status: 'pending' },
-  { id: '12347', store: 'Store 3', items: ['Item 5', 'Item 6'], status: 'pending' },
-  { id: '12348', store: 'Store 4', items: ['Item 7', 'Item 8'], status: 'pending' },
-  { id: '12349', store: 'Store 5', items: ['Item 9', 'Item 10'], status: 'pending' },
+  { id: '12345', store: 'Target', items: ['Item 1', 'Item 2'], status: 'pending' },
+  { id: '12346', store: 'Trader Joes', items: ['Item 3', 'Item 4'], status: 'pending' },
+  { id: '12347', store: 'Target', items: ['Item 5', 'Item 6'], status: 'pending' },
+  { id: '12348', store: 'Trader Joes', items: ['Item 7', 'Item 8'], status: 'pending' },
+  { id: '12349', store: 'Target', items: ['Item 9', 'Item 10'], status: 'pending' },
 ];
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState('buy');
+  const [activeTab, setActiveTab] = useState<'buy' | 'fulfill'>('buy');
   const [orders] = useState<Order[]>(mockOrders);
-  const [products, setProducts] = useState<Product[]>(sampleProducts);
-  const [cartItems, setCartItems] = useState<{[key: string]: number}>({}); // product id -> quantity
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const sliderRef = useRef<HTMLDivElement>(null);
+  
+  const { user, signOut } = useAuth();
+  const { items: cartItems, addItem, getTotalItems, getTotalPrice, clearCart } = useCart();
+  const router = useRouter();
 
-  const filteredOrders = orders.filter(order =>
-    order.store.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    order.items.some(item =>
-      item.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-  );
+  const handleSignOut = async () => {
+    await signOut();
+    router.push('/auth');
+  };
 
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.description.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = async () => {
+      try {
+        const response = await fetch('/api/products');
+        if (!response.ok) {
+          throw new Error('Failed to fetch products');
+        }
+        const data = await response.json();
+        // Remove duplicates by ID, keeping the latest version
+        const uniqueProducts = data.reduce((acc: Product[], product: Product) => {
+          const existingIndex = acc.findIndex(p => p.id === product.id);
+          if (existingIndex >= 0) {
+            acc[existingIndex] = product; // Replace with newer version
+          } else {
+            acc.push(product);
+          }
+          return acc;
+        }, []);
+        setProducts(uniqueProducts);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch products');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+  const filteredOrders = orders.filter((order: Order) => {
+    const searchLower = searchQuery.toLowerCase();
+    return order.items.some((item: string) =>
+      item.toLowerCase().includes(searchLower)
+    );
+  });
+
+  const filteredProducts = products.filter((product: Product) => {
+    const searchLower = searchQuery.toLowerCase();
+    return (
+      product.name.toLowerCase().includes(searchLower) ||
+      product.description.toLowerCase().includes(searchLower)
+    );
+  });
 
   const scroll = (direction: 'left' | 'right') => {
     if (sliderRef.current) {
@@ -92,7 +138,7 @@ export default function Home() {
       const newScrollLeft = direction === 'left'
         ? sliderRef.current.scrollLeft - scrollAmount
         : sliderRef.current.scrollLeft + scrollAmount;
-      
+
       sliderRef.current.scrollTo({
         left: newScrollLeft,
         behavior: 'smooth'
@@ -100,74 +146,123 @@ export default function Home() {
     }
   };
 
-  const addToCart = (productId: string) => {
-    setCartItems(prev => ({
-      ...prev,
-      [productId]: (prev[productId] || 0) + 1
-    }));
-  };
-
-  const getTotalItems = () => {
-    return Object.values(cartItems).reduce((sum, quantity) => sum + quantity, 0);
-  };
-
-  const getTotalPrice = () => {
-    return Object.entries(cartItems).reduce((sum, [productId, quantity]) => {
-      const product = products.find(p => p.id === productId);
-      return sum + (product ? product.price * quantity : 0);
-    }, 0);
+  const handleAddToCart = (product: Product) => {
+    addItem(product, 1);
+    toast.success(`Added ${product.name} to cart`);
   };
 
   const handleCheckout = () => {
-    // Prepare cart items for checkout
-    const items = Object.entries(cartItems).map(([productId, quantity]) => {
-      const product = products.find(p => p.id === productId);
-      return {
-        id: productId,
-        name: product?.name || '',
-        price: product?.price || 0,
-        quantity,
-      };
-    });
+    if (!user) {
+      toast.error('Please log in to checkout');
+      return;
+    }
 
-    // Create query parameters
+    const checkoutItems = Object.entries(cartItems).map(([productId, item]: [string, CartItem]) => ({
+      id: productId,
+      name: item.name,
+      price: item.price,
+      quantity: item.quantity
+    }));
+    // If user is authenticated, proceed to checkout
     const params = new URLSearchParams();
-    params.set('items', JSON.stringify(items));
+    params.set('items', JSON.stringify(checkoutItems));
     params.set('total', getTotalPrice().toFixed(2));
-
-    // Redirect to checkout page
     window.location.href = `/checkout?${params.toString()}`;
+
+    // You can implement the checkout logic here
+    console.log('Checking out with items:', cartItems);
+    // Reset cart after checkout
+    clearCart();
   };
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#FDFBEE' }}>
       {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <header className="bg-white shadow">
+        <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-gray-900">Grabbit</h1>
-            <button className="p-2 rounded-full hover:bg-gray-100">
-              <FaUser className="w-6 h-6 text-gray-600" />
-            </button>
+            <h1 className="text-3xl font-bold text-gray-900">Grabbit</h1>
+            <div className="flex items-center space-x-4">
+              <CartSidebar />
+              {user ? (
+                <div className="flex items-center space-x-4">
+                  <span className="text-gray-700">{user.displayName || user.email}</span>
+                  <button
+                    onClick={handleSignOut}
+                    className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => router.push('/auth')}
+                  className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+                >
+                  Sign In
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Tab Navigation */}
-        <div className="flex space-x-4 mb-6">
+   
+        
+
+        {/* Cart Summary */}
+        <div className="flex justify-between items-center mb-6 bg-white rounded-lg shadow p-4">
+          <div className="flex items-center space-x-4">
+            <div className="relative">
+              <FaShoppingCart className="text-2xl text-gray-600" />
+              {getTotalItems() > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {getTotalItems()}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <div>
+                <div className="text-sm text-gray-900">Cart Total:</div>
+                <div className="font-semibold text-gray-900">${getTotalPrice().toFixed(2)}</div>
+              </div>
+            </div>
+          </div>
           <button
-            className={`px-4 py-2 rounded-lg ${activeTab === 'buy' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'}`}
-            onClick={() => setActiveTab('buy')}
+            onClick={handleCheckout}
+            disabled={getTotalItems() === 0}
+            className="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Buy Products
+            Checkout
           </button>
-          <button
-            className={`px-4 py-2 rounded-lg ${activeTab === 'fulfill' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'}`}
-            onClick={() => setActiveTab('fulfill')}
-          >
-            Fulfill Orders
-          </button>
+        </div>
+
+        {/* Tab Navigation and Add Item Button */}
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex space-x-4">
+            <button
+              className={`px-4 py-2 rounded-lg ${activeTab === 'buy' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'}`}
+              onClick={() => setActiveTab('buy')}
+            >
+              Buy Products
+            </button>
+            <button
+              className={`px-4 py-2 rounded-lg ${activeTab === 'fulfill' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'}`}
+              onClick={() => setActiveTab('fulfill')}
+            >
+              Fulfill Orders
+            </button>
+          </div>
+          {activeTab === 'buy' && (
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center"
+            >
+              <span className="mr-2">+</span>
+              Add Custom Item
+            </button>
+          )}
         </div>
 
         {/* Search Bar */}
@@ -187,45 +282,59 @@ export default function Home() {
         {/* Content Area */}
         <div className="bg-white rounded-lg shadow p-6">
           {activeTab === 'buy' ? (
-            <>
-              {/* Product Slider */}
-              <div className="relative mb-8">
-                <button
-                  onClick={() => scroll('left')}
-                  className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/80 p-2 rounded-full shadow hover:bg-white"
-                >
-                  <FaChevronLeft className="text-gray-600" />
-                </button>
-                
-                <div
-                  ref={sliderRef}
-                  className="flex overflow-x-auto gap-6 pb-4 scrollbar-hide scroll-smooth"
-                  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                >
-                  {filteredProducts.map(product => (
-                    <div
-                      key={product.id}
-                      className="flex-none w-64 border rounded-lg p-4 hover:shadow-lg transition-shadow"
-                    >
-                      <div className="w-full h-40 bg-gray-100 rounded-lg mb-4">
-                        <div className="w-full h-full flex items-center justify-center text-gray-400">
-                          Product Image
-                        </div>
-                      </div>
-                      <div className="font-medium text-gray-600 mb-2">{product.name}</div>
-                      <div className="text-sm text-gray-600 mb-2">{product.description}</div>
-                      <div className="text-lg font-semibold text-gray-800 mb-4">${product.price.toFixed(2)}</div>
-                      <button
-                        onClick={() => addToCart(product.id)}
-                        className="flex items-center justify-center w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                      >
-                        <FaShoppingCart className="mr-2" />
-                        {cartItems[product.id] ? `Add More (${cartItems[product.id]})` : 'Add to Cart'}
-                      </button>
+            <div className="relative">
+              <button
+                onClick={() => scroll('left')}
+                className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/80 p-2 rounded-full shadow hover:bg-white"
+              >
+                <FaChevronLeft className="text-gray-600" />
+              </button>
+                <div className="flex overflow-x-auto space-x-4" ref={sliderRef}>
+                  {isLoading ? (
+                    <div key="loading" className="flex justify-center w-full py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-900"></div>
                     </div>
-                  ))}
+                  ) : error ? (
+                    <div key="error" className="text-red-900 text-center w-full py-8">{error}</div>
+                  ) : filteredProducts.length === 0 ? (
+                    <div key="no-products" className="text-center text-gray-900">
+                      {searchQuery ? 'No products found matching your search' : 'No products available'}
+                    </div>
+                  ) : (
+                    filteredProducts.map(product => (
+                      <div
+                        key={product.id}
+                        className="flex-none w-64 border rounded-lg p-4 hover:shadow-lg transition-shadow"
+                      >
+                        <div className="w-full h-40 bg-gray-100 rounded-lg mb-4 relative overflow-hidden">
+                          {product.image ? (
+                            <Image
+                              src={product.image}
+                              alt={product.name}
+                              fill
+                              style={{ objectFit: 'contain' }}
+                              className="p-2"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-400">
+                              No Image
+                            </div>
+                          )}
+                        </div>
+                        <div className="font-medium text-gray-800 mb-2">{product.name}</div>
+                        <div className="text-sm text-gray-700 mb-2">{product.description}</div>
+                        <div className="text-lg font-semibold text-gray-900 mb-4">${product.price.toFixed(2)}</div>
+                        <button
+                          onClick={() => handleAddToCart(product)}
+                          className="flex items-center justify-center w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                        >
+                          <FaShoppingCart className="mr-2" />
+                          {cartItems[product.id]?.quantity ? `Add More (${cartItems[product.id].quantity})` : 'Add to Cart'}
+                        </button>
+                      </div>
+                    ))
+                  )}
                 </div>
-
                 <button
                   onClick={() => scroll('right')}
                   className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/80 p-2 rounded-full shadow hover:bg-white"
@@ -233,32 +342,6 @@ export default function Home() {
                   <FaChevronRight className="text-gray-600" />
                 </button>
               </div>
-
-              {/* Cart Summary */}
-              <div className="flex justify-between items-center bg-white rounded-lg shadow p-4">
-                <div className="flex items-center space-x-4">
-                  <div className="relative">
-                    <FaShoppingCart className="text-2xl text-gray-600" />
-                    {getTotalItems() > 0 && (
-                      <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                        {getTotalItems()}
-                      </span>
-                    )}
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray-600">Cart Total:</div>
-                    <div className="font-semibold">${getTotalPrice().toFixed(2)}</div>
-                  </div>
-                </div>
-                <button
-                  onClick={handleCheckout}
-                  disabled={getTotalItems() === 0}
-                  className="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Checkout
-                </button>
-              </div>
-            </>
           ) : (
             <div className="space-y-4">
               {filteredOrders.length > 0 ? (
@@ -266,7 +349,7 @@ export default function Home() {
                   <OrderCard key={order.id} order={order} />
                 ))
               ) : (
-                <div className="text-center text-gray-500">
+                <div className="text-center text-gray-700">
                   No orders found
                 </div>
               )}
@@ -274,6 +357,63 @@ export default function Home() {
           )}
         </div>
       </main>
+
+      {/* Add Item Modal */}
+      <AddItemModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onAdd={async (url: string, quantity: number) => {
+          try {
+            // TODO: Call backend API to get product info
+            const response = await fetch('/api/scrape-product', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url })
+            });
+
+            if (!response.ok) {
+              throw new Error('Failed to fetch product info');
+            }
+
+            const productInfo = await response.json();
+            console.log('Scraped product info:', productInfo);
+            // Create product object to send to backend
+            const newProduct = {
+              name: productInfo.name,
+              description: productInfo.description || '',
+              price: productInfo.price,
+              image: productInfo.image_url || '',
+              url: url,
+              store: url.includes('target.com') ? 'Target' : 'Trader Joes'
+            };
+
+            // Add product to backend
+            const addResponse = await fetch('/api/products/add', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(newProduct)
+            });
+
+            if (!addResponse.ok) {
+              throw new Error('Failed to add product');
+            }
+
+            const addedProduct = await addResponse.json();
+            console.log('Added product:', addedProduct);
+            setProducts(prev => {
+              // Remove any existing product with the same ID
+              const filtered = prev.filter(p => p.id !== addedProduct.id);
+              // Add the new/updated product
+              return [...filtered, addedProduct];
+            });
+            console.log('Adding to cart:', addedProduct, 'quantity:', quantity);
+            addItem(addedProduct, quantity);
+          } catch (error) {
+            console.error('Error adding custom item:', error);
+            // TODO: Show error toast/notification
+          }
+        }}
+      />
     </div>
   );
 }

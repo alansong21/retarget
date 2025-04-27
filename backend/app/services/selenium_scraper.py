@@ -158,20 +158,46 @@ def scrape_trader_joes_product(url, driver):
         "price": price
     }
 
-# Example usage
-if __name__ == "__main__":
+def scrape_product_info(url: str) -> dict:
+    """Scrape product information from Target or Trader Joe's URL.
+    
+    Args:
+        url: Product URL from Target or Trader Joe's
+        
+    Returns:
+        dict: Product information including name, price, and image URL
+    """
     driver = create_driver()
-
+    
     try:
-        # Target Example
-        target_url = "https://www.target.com/p/dove-beauty-white-moisturizing-beauty-bar-soap/-/A-84780837?preselect=11012602#lnk=sametab"
-        print("\nTarget:")
-        print(scrape_target_product(target_url, driver))
-
-        # Trader Joe's Example
-        trader_joes_url = "https://www.traderjoes.com/home/products/pdp/spicy-pink-salt-with-crushed-red-chili-pepper-076362"
-        print("\nTrader Joe's:")
-        print(scrape_trader_joes_product(trader_joes_url, driver))
-
+        if 'target.com' in url:
+            info = scrape_target_product(url, driver)
+        elif 'traderjoes.com' in url:
+            info = scrape_trader_joes_product(url, driver)
+        else:
+            raise ValueError('URL must be from Target or Trader Joe\'s')
+            
+        # Convert price string to number
+        if isinstance(info['price'], str) and '$' in info['price']:
+            # Extract first number after $ sign
+            price_str = info['price'].split('$')[1].split()[0]
+            try:
+                info['price'] = float(price_str)
+            except ValueError:
+                info['price'] = 0.0
+        
+        return info
     finally:
         driver.quit()
+
+# Example usage
+if __name__ == "__main__":
+    # Target Example
+    target_url = "https://www.target.com/p/dove-beauty-white-moisturizing-beauty-bar-soap/-/A-84780837?preselect=11012602#lnk=sametab"
+    print("\nTarget:")
+    print(scrape_product_info(target_url))
+
+    # Trader Joe's Example
+    trader_joes_url = "https://www.traderjoes.com/home/products/pdp/spicy-pink-salt-with-crushed-red-chili-pepper-076362"
+    print("\nTrader Joe's:")
+    print(scrape_product_info(trader_joes_url))

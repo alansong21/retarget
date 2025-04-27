@@ -54,10 +54,14 @@ def create_app(config_class=Config):
     # Import routes
     from app.routes.orders import orders_bp
     from app.routes.auth import auth_bp
+    from app.routes.scraper import scraper_bp
+    from app.routes.products import products_bp
     
     # Register blueprints
     app.register_blueprint(orders_bp, url_prefix='/orders')
     app.register_blueprint(auth_bp, url_prefix='/auth')
+    app.register_blueprint(scraper_bp, url_prefix='/scrape')
+    app.register_blueprint(products_bp, url_prefix='/products')
     
     # Create tables
     with app.app_context():

@@ -29,7 +29,7 @@ export default function SuccessPage() {
             />
           </svg>
         </div>
-        <h1 className="text-2xl font-bold mb-4">Payment Successful!</h1>
+        <h1 className="text-gray-900 font-bold mb-4">Payment Successful! You will receive details about your order.</h1>
         <p className="text-gray-600 mb-8">
           Thank you for your purchase. Your order has been processed successfully.
         </p>

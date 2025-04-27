@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { loadStripe } from '@stripe/stripe-js';
+import { useAuth } from '@/context/AuthContext';
 
 // Initialize Stripe
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
@@ -16,10 +17,21 @@ interface CartItem {
 
 export default function CheckoutPage() {
   const searchParams = useSearchParams();
+  const { user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const cartItems = JSON.parse(searchParams.get('items') || '[]');
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      window.location.href = '/auth?redirect=/checkout' + window.location.search;
+    }
+  }, [user, authLoading]);
+
+  // Get cart items from URL parameters
+  const items = searchParams.get('items');
   const total = searchParams.get('total');
+  const cartItems = items ? JSON.parse(items) : [];
 
   const handlePayment = async () => {
     try {
