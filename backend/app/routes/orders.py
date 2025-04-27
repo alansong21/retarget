@@ -1,3 +1,20 @@
+"""Order Management Routes.
+
+This module contains all the API endpoints for managing orders in the Retarget delivery system.
+It handles order creation, assignment, status updates, and delivery confirmation.
+
+The order lifecycle is as follows:
+1. Order is created by buyer (status: open)
+2. Order is accepted by carrier (status: assigned)
+3. Carrier starts the delivery (status: in_progress)
+4. Carrier marks items ready for pickup (status: ready_for_pickup)
+5. Buyer confirms delivery (status: completed)
+
+Additional statuses:
+- cancelled: Order was cancelled
+- expired: Order wasn't accepted within time limit
+"""
+
 from flask import Blueprint, request, jsonify
 from app.models import db, Order, OrderAssignment
 from datetime import datetime, timedelta, timezone
@@ -7,10 +24,35 @@ orders_bp = Blueprint('orders', __name__)
 
 @orders_bp.route('/test', methods=['GET'])
 def test_route():
+    """Test endpoint to verify the orders blueprint is working.
+    
+    Returns:
+        tuple: JSON response with success message and 200 status code
+    """
     return jsonify({"message": "Orders blueprint is working"}), 200
 
 @orders_bp.route('/create', methods=['POST'])
 def create_order():
+    """Create a new delivery order.
+    
+    Expected JSON payload:
+    {
+        "buyer_id": int,          # ID of the user creating the order
+        "store_name": string,     # Name of the store to purchase from
+        "item_list": [            # List of items to purchase
+            {
+                "item": string,   # Item name
+                "qty": int       # Quantity
+            }
+        ],
+        "delivery_address": string # Delivery destination
+    }
+    
+    Returns:
+        tuple: JSON response with order details and status code
+            201: Order created successfully
+            400: Invalid request (missing fields or invalid data)
+    """
     try:
         data = request.get_json()
         if not data:
@@ -47,6 +89,18 @@ def create_order():
 
 @orders_bp.route('/available', methods=['GET'])
 def get_available_orders():
+    """Get all open orders that haven't expired.
+    
+    This endpoint is used by carriers to view orders they can accept.
+    Only returns orders that:
+    1. Have status 'open'
+    2. Haven't reached their expiry time
+    
+    Returns:
+        tuple: JSON response with list of available orders and status code
+            200: Success
+            500: Server error
+    """
     try:
         # Fetch all open orders that haven't expired
         now = datetime.now(timezone.utc)
@@ -72,6 +126,27 @@ def get_available_orders():
 
 @orders_bp.route('/accept/<int:order_id>', methods=['POST'])
 def accept_order(order_id):
+    """Accept an open order as a carrier.
+    
+    URL Parameters:
+        order_id (int): ID of the order to accept
+    
+    Expected JSON payload:
+    {
+        "carrier_id": int  # ID of the carrier accepting the order
+    }
+    
+    The order must be:
+    1. In 'open' status
+    2. Not expired
+    3. Not already assigned to another carrier
+    
+    Returns:
+        tuple: JSON response with acceptance confirmation and status code
+            200: Order accepted successfully
+            400: Order already assigned or expired
+            404: Order not found
+    """
     data = request.get_json()
 
     try:
@@ -119,6 +194,27 @@ def accept_order(order_id):
 
 @orders_bp.route('/update_status/<int:order_id>', methods=['POST'])
 def update_order_status(order_id):
+    """Update the status of an order by its assigned carrier.
+    
+    URL Parameters:
+        order_id (int): ID of the order to update
+    
+    Expected JSON payload:
+    {
+        "carrier_id": int,     # ID of the carrier updating the order
+        "new_status": string  # New status for the order
+    }
+    
+    Valid status transitions:
+    - assigned -> in_progress: Carrier has started the delivery
+    - in_progress -> ready_for_pickup: Items are ready for buyer pickup
+    
+    Returns:
+        tuple: JSON response with update confirmation and status code
+            200: Status updated successfully
+            400: Invalid status transition or not assigned carrier
+            404: Order not found
+    """
     data = request.get_json()
 
     try:
@@ -166,6 +262,70 @@ def update_order_status(order_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     
+@orders_bp.route('/confirm_delivery/<int:order_id>', methods=['POST'])
+def confirm_delivery(order_id):
+    """Confirm delivery completion by the buyer.
+    
+    URL Parameters:
+        order_id (int): ID of the order to confirm
+    
+    Expected JSON payload:
+    {
+        "buyer_id": int  # ID of the buyer confirming delivery
+    }
+    
+    Requirements:
+    1. Order must be in 'ready_for_pickup' status
+    2. Only the original buyer can confirm delivery
+    
+    This endpoint:
+    1. Marks the order as 'completed'
+    2. Updates the OrderAssignment status
+    3. Records completion timestamp
+    
+    Returns:
+        tuple: JSON response with confirmation and status code
+            200: Delivery confirmed successfully
+            400: Order not ready for confirmation
+            403: Not the order's buyer
+            404: Order not found
+    """
+    data = request.get_json()
 
+    try:
+        buyer_id = data['buyer_id']
+
+        # Find the order
+        order = Order.query.get(order_id)
+
+        if not order:
+            return jsonify({"error": "Order not found"}), 404
         
+        # Check buyer matches
+        if order.buyer_id != buyer_id:
+            return jsonify({"error": "You are not the buyer for this order"}), 403
         
+        # Check that order is ready for pickup
+        if order.status != 'ready_for_pickup':
+            return jsonify({"error": f"Order is not ready for delivery confirmation (current status: {order.status})"}), 400
+        
+        # Mark order completed
+        order.status = 'completed'
+
+        # Update assignment as completed
+        assignment = OrderAssignment.query.filter_by(order_id=order_id).first()
+        if assignment:
+            assignment.status = 'completed'
+            assignment.completed_at = datetime.now(timezone.utc) 
+
+        db.session.commit()
+
+        return jsonify({
+            "message": "Delivery confirmed and order completed",
+            "order_id": order.id
+        }), 200
+
+    except KeyError as e:
+        return jsonify({"error": f"Missing field {str(e)}"}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500          
