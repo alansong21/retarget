@@ -14,11 +14,55 @@ interface Order {
   expiry_time: string;
 }
 
+interface SubmitOrderResponse {
+  message: string;
+  order_id: number;
+}
+
 export default function BuyProducts() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState<number | null>(null);
   const router = useRouter();
+
+  const handleSubmitOrder = async (orderId: number) => {
+    setSubmitting(orderId);
+    setError('');
+
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error('You must be logged in to submit an order');
+      }
+
+      const response = await fetch(`/api/orders/submit/${orderId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          buyer_id: user.uid,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to submit order');
+      }
+
+      // Update the order status in the local state
+      setOrders(orders.map(order => 
+        order.order_id === orderId 
+          ? { ...order, status: 'submitted' }
+          : order
+      ));
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSubmitting(null);
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
@@ -103,10 +147,19 @@ export default function BuyProducts() {
                         </span>
                       </div>
                     </div>
-                    <div className="ml-2 flex-shrink-0 flex flex-col items-end">
+                    <div className="ml-2 flex-shrink-0 flex flex-col items-end gap-2">
                       <p className="text-sm text-gray-500">
                         {new Date(order.expiry_time).toLocaleString()}
                       </p>
+                      {order.status === 'open' && (
+                        <button
+                          onClick={() => handleSubmitOrder(order.order_id)}
+                          disabled={submitting === order.order_id}
+                          className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+                        >
+                          {submitting === order.order_id ? 'Submitting...' : 'Submit Order'}
+                        </button>
+                      )}
                     </div>
                   </div>
                   <div className="mt-2 sm:flex sm:justify-between">
