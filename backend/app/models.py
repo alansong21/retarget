@@ -5,6 +5,7 @@ It includes models for users, orders, and order assignments, establishing
 the relationships between buyers, carriers, and delivery orders.
 """
 
+from enum import unique
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timezone
 
@@ -18,8 +19,11 @@ class User(db.Model):
     
     Attributes:
         id (int): Primary key
+        firebase_uid (str): Unique identifier from Firebase (unique)
         name (str): User's full name
         email (str): User's email address (unique)
+        email_verified (bool): Whether the user's email is verified
+        email_verification_token (str): Token for email verification
         password_hash (str): Hashed password
         phone_number (str): Contact phone number
         role (str): User role ('buyer' or 'carrier')
@@ -32,6 +36,7 @@ class User(db.Model):
     __tablename__ = 'users'
 
     id = db.Column(db.Integer, primary_key=True)
+    firebase_uid = db.Column(db.String(128), unique=True, nullable=False)
     name = db.Column(db.String(120), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     email_verified = db.Column(db.Boolean, default=False)
