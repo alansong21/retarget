@@ -12,7 +12,6 @@ def is_valid_retailer_url(url):
     domain = parsed_url.netloc
     return any(approved in domain for approved in APPROVED_DOMAINS)
 
-
 def is_valid_email(email):
     # Check if the email has a valid format
     return re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+", email) is not None
