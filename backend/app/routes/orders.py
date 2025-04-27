@@ -16,7 +16,8 @@ Additional statuses:
 """
 
 from flask import Blueprint, request, jsonify
-from app.models import db, Order, OrderAssignment
+from flask_login import login_required, current_user
+from app.models import db, Order, User
 from datetime import datetime, timedelta, timezone
 from app.services.selenium_scraper import (
     scrape_target_product,
@@ -43,7 +44,7 @@ def fetch_product_info():
     if not product_url:
         return jsonify({"error": "Missing URL"}), 400
     
-    if not is_valid_retailer_url(product_url):
+    if not validate_retailer_urls(product_url):
         return jsonify({"error": "Invalid retailer URL"}), 400
 
     try:
@@ -62,6 +63,7 @@ def fetch_product_info():
         return jsonify({"error": str(e)}), 500
 
 @orders_bp.route('/batch_create', methods=['POST'])
+@login_required
 def batch_create_orders():
     """Create multiple orders from a list of product URLs.
     
@@ -89,7 +91,7 @@ def batch_create_orders():
             return jsonify({"error": "No JSON data provided"}), 400
 
         # Validate required fields
-        required_fields = ['buyer_id', 'delivery_address', 'products']
+        required_fields = ['delivery_address', 'products']
         for field in required_fields:
             if field not in data:
                 return jsonify({"error": f"Missing required field: {field}"}), 400
@@ -122,28 +124,31 @@ def batch_create_orders():
                     # Create order with scraped information
                     store_name = 'Target' if 'target.com' in url else 'Trader Joes'
 
-                    new_order = Order(
-                        buyer_id=data['buyer_id'],
+                    order = Order(
+                        buyer_id=current_user.id,
                         store_name=store_name,
                         items=[{
-                            "name": product_info.get('name'),
-                            "quantity": quantity,
-                            "price": product_info.get('price')
+                            'name': product_info['name'],
+                            'quantity': quantity,
+                            'price': product_info['price']
                         }],
                         delivery_address=data['delivery_address'],
                         status='open',
-                        expiry_time=datetime.now(timezone.utc) + timedelta(hours=1),
+                        expiry_time=datetime.now(timezone.utc) + timedelta(hours=24),
                         product_page_url=url,
                         product_image_url=product_info.get('image_url')
                     )
 
-                    db.session.add(new_order)
+                    db.session.add(order)
+                    db.session.commit()  # Commit to get the order ID
                     created_orders.append({
+                        "id": order.id,
                         "url": url,
-                        "name": product_info.get('name'),
-                        "price": product_info.get('price'),
+                        "name": product_info['name'],
                         "quantity": quantity,
-                        "store": store_name
+                        "price": product_info['price'],
+                        "store": store_name,
+                        "status": order.status
                     })
 
                 except Exception as e:
@@ -167,6 +172,7 @@ def batch_create_orders():
         return jsonify({"error": str(e)}), 500
 
 @orders_bp.route('/create', methods=['POST'])
+@login_required
 def create_order():
     """Create a new delivery order.
     
@@ -223,6 +229,7 @@ def create_order():
         return jsonify({"error": str(e)}), 400
 
 @orders_bp.route('/available', methods=['GET'])
+@login_required
 def get_available_orders():
     """Get all open orders that haven't expired.
     
@@ -260,6 +267,7 @@ def get_available_orders():
         return jsonify({"error": str(e)}), 500
 
 @orders_bp.route('/accept/<int:order_id>', methods=['POST'])
+@login_required
 def accept_order(order_id):
     """Accept an open order as a carrier.
     
@@ -285,8 +293,8 @@ def accept_order(order_id):
     data = request.get_json()
 
     try:
-        carrier_id = data['carrier_id']
-
+        user = current_user
+        
         # Find the order 
         order = Order.query.get(order_id)
 

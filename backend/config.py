@@ -20,6 +20,7 @@ class Config:
     """
     # Security
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev_secret_key'
+    SECRET_KEY_FOR_FLASK_LOGIN = os.environ.get('SECRET_KEY_FOR_FLASK_LOGIN') or 'dev_secret_key_for_flask_login'
     WTF_CSRF_ENABLED = False  # Disable CSRF protection for API
     
     # Database

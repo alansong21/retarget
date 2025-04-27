@@ -7,10 +7,11 @@ the relationships between buyers, carriers, and delivery orders.
 
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timezone
+from flask_login import UserMixin
+from werkzeug.security import generate_password_hash, check_password_hash
+from app import db
 
-db = SQLAlchemy()
-
-class User(db.Model):
+class User(UserMixin, db.Model):
     """User model representing both buyers and carriers in the system.
     
     A user can be either a buyer who creates orders or a carrier who fulfills them.
@@ -18,11 +19,10 @@ class User(db.Model):
     
     Attributes:
         id (int): Primary key
-        name (str): User's full name
         email (str): User's email address (unique)
         password_hash (str): Hashed password
-        phone_number (str): Contact phone number
         role (str): User role ('buyer' or 'carrier')
+        display_name (str): User's display name
         created_at (datetime): Account creation timestamp
         updated_at (datetime): Last update timestamp
         orders (relationship): Orders created by this user (if buyer)
@@ -32,16 +32,21 @@ class User(db.Model):
     __tablename__ = 'users'
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(120), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(128), nullable=False)
-    phone_number = db.Column(db.String(20))
-    role = db.Column(db.String(20)) # 'buyer' or 'carrier'
+    password_hash = db.Column(db.String(256))
+    role = db.Column(db.String(20), nullable=False)  # 'buyer' or 'carrier'
+    display_name = db.Column(db.String(100))
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
 
-    orders = db.relationship('Order', backref='buyer', lazy=True, foreign_keys='Order.buyer_id')
-    assignments = db.relationship('OrderAssignment', backref='carrier', lazy=True, foreign_keys='OrderAssignment.carrier_id')
+    created_orders = db.relationship('Order', backref='buyer', lazy=True, foreign_keys='Order.buyer_id')
+    assigned_orders = db.relationship('Order', backref='carrier', lazy=True, foreign_keys='Order.assigned_carrier_id')
+    
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+        
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
 
 class Order(db.Model):
     """Order model representing a delivery request.

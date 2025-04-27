@@ -3,22 +3,56 @@
 import requests
 from pprint import pprint
 
+def login_user(email="test@example.com", password="password123"):
+    try:
+        # First try to register
+        register_data = {
+            'email': email,
+            'password': password,
+            'role': 'buyer',
+            'display_name': 'Test User'
+        }
+        
+        response = requests.post('http://localhost:5001/auth/register', json=register_data)
+        if response.status_code != 201:
+            # If registration fails, try to login
+            login_data = {
+                'email': email,
+                'password': password
+            }
+            response = requests.post('http://localhost:5001/auth/login', json=login_data)
+            if response.status_code != 200:
+                print(f"Login failed: {response.json().get('error')}")
+                return None
+        
+        # Get the session cookie
+        return response.cookies.get('session')
+    except Exception as e:
+        print(f"Error during authentication: {str(e)}")
+        return None
+
 def test_batch_create(products):
     # API endpoint
     url = 'http://localhost:5001/orders/batch_create'
     
-    # Test payload
+    # Login and get session cookie
+    session = login_user()
+    if not session:
+        print("Failed to authenticate")
+        return
+    
+    # Create request payload
     payload = {
-        "buyer_id": 1,  # Make sure this user exists in your database
-        "delivery_address": "123 Test St, San Francisco, CA 94105",
-        "products": products
+        'products': products,
+        'delivery_address': '123 Test St, Los Angeles, CA 90012'
     }
 
     try:
         # Make the request
         print("\nSending request to create batch orders...")
         headers = {'Content-Type': 'application/json'}
-        response = requests.post(url, json=payload, headers=headers)
+        cookies = {'session': session}
+        response = requests.post(url, json=payload, headers=headers, cookies=cookies)
         
         # Print response details
         print(f"\nStatus Code: {response.status_code}\n")
@@ -32,6 +66,8 @@ def test_batch_create(products):
         print("Error: Could not connect to the server. Make sure your Flask app is running.")
     except Exception as e:
         print(f"Error: {str(e)}")
+
+
 
 def main():
     print("Choose a test case:")
