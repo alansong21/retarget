@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState, useRef, useEffect } from 'react';
 import { FaSearch, FaShoppingCart, FaChevronLeft, FaChevronRight, FaUser } from 'react-icons/fa';
+import { useAuth } from '@/context/AuthContext';
 import OrderCard from '@/components/OrderCard';
 
 interface Order {
@@ -39,7 +40,7 @@ const sampleProducts: Product[] = [
     id: '3',
     name: 'Organic Milk',
     description: '1 gallon of organic whole milk',
-    price: 5.99,
+    price: 0,
     image: '/products/milk.jpg'
   },
   {
@@ -118,9 +119,11 @@ export default function Home() {
     }, 0);
   };
 
+  const { user } = useAuth();
+
   const handleCheckout = () => {
     // Prepare cart items for checkout
-    const items = Object.entries(cartItems).map(([productId, quantity]) => {
+    const checkoutItems = Object.entries(cartItems).map(([productId, quantity]) => {
       const product = products.find(p => p.id === productId);
       return {
         id: productId,
@@ -130,12 +133,18 @@ export default function Home() {
       };
     });
 
-    // Create query parameters
-    const params = new URLSearchParams();
-    params.set('items', JSON.stringify(items));
-    params.set('total', getTotalPrice().toFixed(2));
+    if (!user) {
+      const params = new URLSearchParams();
+      params.set('items', JSON.stringify(checkoutItems));
+      params.set('total', getTotalPrice().toFixed(2));
+      window.location.href = `/auth?redirect=/checkout?${params.toString()}`;
+      return;
+    }
 
-    // Redirect to checkout page
+    // If user is authenticated, proceed to checkout
+    const params = new URLSearchParams();
+    params.set('items', JSON.stringify(checkoutItems));
+    params.set('total', getTotalPrice().toFixed(2));
     window.location.href = `/checkout?${params.toString()}`;
   };
 
@@ -146,9 +155,24 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
             <h1 className="text-2xl font-bold text-gray-900">Grabbit</h1>
-            <button className="p-2 rounded-full hover:bg-gray-100">
-              <FaUser className="w-6 h-6 text-gray-600" />
-            </button>
+            {user ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">{user.email}</span>
+                <button 
+                  onClick={() => auth.signOut()}
+                  className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                >
+                  <FaUser className="w-5 h-5 text-gray-600" />
+                </button>
+              </div>
+            ) : (
+              <button 
+                onClick={() => window.location.href = '/auth'}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+              >
+                Log in / Register
+              </button>
+            )}
           </div>
         </div>
       </header>
