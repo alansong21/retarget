@@ -1,20 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import { signInWithPopup } from 'firebase/auth';
-import { auth, googleProvider } from '@/config/firebase';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { useAuth } from '@/contexts/AuthContext';
+import { auth } from '@/config/firebase';
 
 export default function Login() {
   const [error, setError] = useState('');
   const router = useRouter();
+  const { signIn } = useAuth();
 
   const handleGoogleSignIn = async () => {
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
+      await signIn();
       
       // Send user data to your backend to check if user exists
       const response = await fetch('/api/users', {
@@ -23,8 +23,8 @@ export default function Login() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email: user.email,
-          firebase_uid: user.uid,
+          email: auth.currentUser?.email,
+          firebase_uid: auth.currentUser?.uid,
         })
       });
 
