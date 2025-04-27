@@ -1,8 +1,28 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from dotenv import load_dotenv
+from app.routes.user_auth import auth_bp
+from app.models import db
+from app.config import Config
+from app.firebase_config import initialize_firebase
+
+# Load environment variables
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)  # This will enable CORS for all routes
+
+# Configure app with settings from config.py
+app.config.from_object(Config)
+
+# Initialize database
+db.init_app(app)
+
+# Initialize Firebase Admin SDK
+initialize_firebase()
+
+# Register auth blueprint
+app.register_blueprint(auth_bp)
 
 # Sample data for orders
 orders = [
