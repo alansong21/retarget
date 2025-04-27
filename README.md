@@ -21,9 +21,9 @@ Enables buyers to create and manage grocery orders, matches available orders to 
 Calculates service fees for buyers and reward bonuses for carriers in real time, based on relevant contextual variables (e.g., demand, distance, order size).
 
 
-# building and installing
+# Building and Installing
 
-1. In one terminal, we start the backend server:
+1. In one terminal, we install the requisites for the backend server:
 ```bash
 cd backend
 python3 -m venv venv
@@ -31,9 +31,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-// wtv database stuff @alan
-
-2. Actually start the backend server.
+2. Start the backend server.
 ```bash
 python app.py
 ```
@@ -41,6 +39,7 @@ python app.py
 3. Start the front-end server.
 ```bash
 cd frontend
+npm install
 npm run dev
 ```
 4. Set up Stripe
