@@ -47,18 +47,21 @@ export default function Home() {
       console.log('Fetched orders from backend:', data);
       
       // Map backend order format to frontend Order interface
-      const mappedOrders = data.map((order: any) => ({
-        id: order.order_id.toString(), // Convert to string as our interface expects string
-        store: order.store_name,
-        items: order.items.map((item: any) => ({
-          name: item.name,
-          quantity: item.quantity,
-          price: parseFloat(item.price?.replace('$', '') || '0')
-        })),
-        status: 'pending', // Backend uses 'open', frontend uses 'pending'
-        total: order.total || 0,
-        createdAt: order.expiry_time // Using expiry_time as a proxy for createdAt
-      }));
+      const mappedOrders = data.map((order: any) => {
+        console.log('Processing order:', order);
+        return {
+          id: String(order.order_id), // Convert to string as our interface expects string
+          store: order.store_name,
+          items: Array.isArray(order.items) ? order.items.map((item: any) => ({
+            name: item.name || item.item, // Handle both formats
+            quantity: item.quantity || item.qty, // Handle both formats
+            price: typeof item.price === 'string' ? parseFloat(item.price.replace('$', '')) : (item.price || 0)
+          })) : [],
+          status: 'pending', // Backend uses 'open', frontend uses 'pending'
+          total: order.total || 0,
+          createdAt: order.expiry_time // Using expiry_time as a proxy for createdAt
+        };
+      });
       
       console.log('Mapped orders for frontend:', mappedOrders);
       setOrders(mappedOrders);

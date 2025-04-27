@@ -172,7 +172,6 @@ def batch_create_orders():
         return jsonify({"error": str(e)}), 500
 
 @orders_bp.route('/create', methods=['POST'])
-@login_required
 def create_order():
     """Create a new delivery order.
     
@@ -229,7 +228,6 @@ def create_order():
         return jsonify({"error": str(e)}), 400
 
 @orders_bp.route('/available', methods=['GET'])
-@login_required
 def get_available_orders():
     """Get all open orders that haven't expired.
     

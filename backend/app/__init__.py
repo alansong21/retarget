@@ -31,7 +31,7 @@ def create_app(config_class=Config):
     # Initialize extensions
     db.init_app(app)
     migrate.init_app(app, db)
-    CORS(app)
+    CORS(app, resources={r"/*": {"origins": ["http://localhost:3000", "http://localhost:3001"], "supports_credentials": True}})
     
     # Setup Flask-Login
     login_manager.init_app(app)
