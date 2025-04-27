@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useState, useRef, useEffect } from 'react';
 import { FaSearch, FaShoppingCart, FaChevronLeft, FaChevronRight, FaUser } from 'react-icons/fa';
 import { useAuth } from '@/context/AuthContext';
+import { auth } from '@/config/firebase';
 import OrderCard from '@/components/OrderCard';
 
 interface Order {
@@ -157,12 +158,24 @@ export default function Home() {
             <h1 className="text-2xl font-bold text-gray-900">Grabbit</h1>
             {user ? (
               <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600">{user.email}</span>
+                <span className="text-sm text-gray-600">{user.displayName || user.email}</span>
                 <button 
                   onClick={() => auth.signOut()}
-                  className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                  className="overflow-hidden rounded-full hover:ring-2 hover:ring-gray-300 transition-all"
                 >
-                  <FaUser className="w-5 h-5 text-gray-600" />
+                  {user.photoURL ? (
+                    <Image
+                      src={user.photoURL}
+                      alt="Profile"
+                      width={32}
+                      height={32}
+                      className="w-8 h-8 rounded-full"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                      <FaUser className="w-4 h-4 text-gray-600" />
+                    </div>
+                  )}
                 </button>
               </div>
             ) : (
