@@ -1,26 +1,22 @@
 'use client';
 
-if (typeof window === 'undefined') {
-  throw new Error('This page can only be rendered in the browser');
-}
-
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useCart } from '@/contexts';
+import toast from 'react-hot-toast';
 
 export default function SuccessPage() {
   const router = useRouter();
+  const { clearCart } = useCart();
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    // Clear the cart and update order status
-    try {
-      // TODO: Call API to update order status
-      // Clear local cart
-      localStorage.removeItem('cart');
-    } catch (error) {
-      console.error('Error processing success:', error);
-    }
-  }, []);
+    // Clear the cart immediately
+    clearCart();
+    // Clear session storage
+    sessionStorage.removeItem('cartCleared');
+    // Show success message
+    toast.success('Payment successful! Your cart has been cleared.');
+  }, []); // Empty dependency array since we only want this to run once
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">

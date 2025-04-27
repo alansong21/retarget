@@ -53,7 +53,38 @@ export async function POST(request: Request) {
     if (!session.url) {
       throw new Error('No checkout URL returned from Stripe');
     }
-    
+
+    // Create an order in our system
+    try {
+      // Format data to match backend API expectations
+      const orderData = {
+        buyer_id: body.userId,
+        delivery_address: 'To be provided', // We'll need to collect this later
+        store_name: (Object.values(body.cartItems)[0] as any)?.store || 'Target',
+        item_list: Object.values(body.cartItems).map((item: any) => ({
+          item: item.name,
+          qty: item.quantity
+        }))
+      };
+
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+      const orderResponse = await fetch(`${apiUrl}/orders/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(orderData),
+      });
+
+      if (!orderResponse.ok) {
+        console.error('Failed to create order:', await orderResponse.text());
+      } else {
+        console.log('Order created successfully');
+      }
+    } catch (orderError) {
+      console.error('Error creating order:', orderError);
+    }
+
     console.log('Created Stripe session:', { 
       id: session.id,
       url: session.url,

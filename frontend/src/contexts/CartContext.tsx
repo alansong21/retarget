@@ -24,6 +24,8 @@ interface CartContextType {
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
   getTotalItems: () => number;
+  getSubtotal: () => number;
+  getDeliveryFee: () => number;
   getTotalPrice: () => number;
 }
 
@@ -42,7 +44,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   // Save cart to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem('cart', JSON.stringify(items));
+    // Only save if items have actually changed
+    const currentCart = localStorage.getItem('cart');
+    const newCart = JSON.stringify(items);
+    if (currentCart !== newCart) {
+      localStorage.setItem('cart', newCart);
+    }
   }, [items]);
 
   const addItem = (product: Product, quantity: number = 1) => {
@@ -83,17 +90,26 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const clearCart = () => {
     setItems({});
+    localStorage.removeItem('cart');
   };
 
   const getTotalItems = () => {
     return Object.values(items).reduce((sum, item) => sum + item.quantity, 0);
   };
 
-  const getTotalPrice = () => {
+  const getSubtotal = () => {
     return Object.values(items).reduce(
       (sum, item) => sum + item.price * item.quantity,
       0
     );
+  };
+
+  const getDeliveryFee = () => {
+    return getSubtotal() * 0.15; // 15% delivery fee
+  };
+
+  const getTotalPrice = () => {
+    return getSubtotal() + getDeliveryFee();
   };
 
   return (
@@ -105,6 +121,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         updateQuantity,
         clearCart,
         getTotalItems,
+        getSubtotal,
+        getDeliveryFee,
         getTotalPrice,
       }}
     >
