@@ -40,8 +40,8 @@ class User(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
 
-    orders = db.relationship('Order', backref='buyer', lazy=True)
-    assignments = db.relationship('OrderAssignment', backref='carrier', lazy=True)
+    orders = db.relationship('Order', backref='buyer', lazy=True, foreign_keys='Order.buyer_id')
+    assignments = db.relationship('OrderAssignment', backref='carrier', lazy=True, foreign_keys='OrderAssignment.carrier_id')
 
 class Order(db.Model):
     """Order model representing a delivery request.
