@@ -1,9 +1,11 @@
 Flask
 Flask-SQLAlchemy
 Flask-Migrate
+Flask-Login
 psycopg2-binary  # for PostgreSQL
 python-dotenv
 flask-cors
 requests
 beautifulsoup4
 stripe
+selenium
