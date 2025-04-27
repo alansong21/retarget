@@ -19,5 +19,6 @@ class Config:
         SQLALCHEMY_TRACK_MODIFICATIONS (bool): Disable SQLAlchemy modification tracking
     """
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev_secret_key'
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or 'sqlite:///app.db'
+    basedir = os.path.abspath(os.path.dirname(__file__))
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or f'sqlite:///{os.path.join(basedir, "app.db")}'  # Using the same path as create_db.py
     SQLALCHEMY_TRACK_MODIFICATIONS = False
