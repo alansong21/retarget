@@ -78,6 +78,8 @@ class Order(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
     assigned_carrier_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     expiry_time = db.Column(db.DateTime, nullable=False)
+    product_page_url = db.Column(db.Text, nullable=True) # direct link
+    product_image_url = db.Column(db.Text, nullable=True) # image link
 
     assignment = db.relationship('OrderAssignment', backref='order', uselist=False)
 

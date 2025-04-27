@@ -18,7 +18,11 @@ Additional statuses:
 from flask import Blueprint, request, jsonify
 from app.models import db, Order, OrderAssignment
 from datetime import datetime, timedelta, timezone
-import json
+from app.services.scraping_service import (
+    scrape_target_product, 
+    scrape_ralphs_product, 
+    scrape_trader_joes_product
+)
 
 orders_bp = Blueprint('orders', __name__)
 
@@ -30,6 +34,32 @@ def test_route():
         tuple: JSON response with success message and 200 status code
     """
     return jsonify({"message": "Orders blueprint is working"}), 200
+
+@orders_bp.route('/fetch_product_info', methods=['POST'])
+def fetch_product_info():
+    data = request.get_json()
+    product_url = data.get('url')
+
+    if not product_url:
+        return jsonify({"error": "Missing URL"}), 400
+    
+    if not is_valid_retailer_url(product_url):
+        return jsonify({"error": "Invalid retailer URL"}), 400
+
+    try:
+        if 'target.com' in product_url:
+            product_info = scrape_target_product(product_url)
+        elif 'ralphs.com' in product_url:
+            product_info = scrape_ralphs_product(product_url)
+        elif 'traderjoes.com' in product_url:
+            product_info = scrape_trader_joes_product(product_url)
+        else:
+            return jsonify({"error": "Scraper not available for this retailer"}), 400
+
+        return jsonify(product_info), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @orders_bp.route('/create', methods=['POST'])
 def create_order():
