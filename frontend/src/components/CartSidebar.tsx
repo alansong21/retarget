@@ -70,7 +70,7 @@ export default function CartSidebar() {
           <div className="fixed right-0 top-0 h-full w-96 bg-white shadow-lg p-6 overflow-y-auto">
             {/* Header */}
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold">Shopping Cart</h2>
+              <h2 className="text-xl font-semibold text-gray-900">Shopping Cart</h2>
               <button
                 onClick={() => setIsOpen(false)}
                 className="text-gray-500 hover:text-gray-700"
@@ -85,10 +85,10 @@ export default function CartSidebar() {
                 {Object.values(items).map((item) => (
                   <div key={item.id} className="flex items-center space-x-4 border-b pb-4">
                     <div className="flex-grow">
-                      <h3 className="font-medium">{item.name}</h3>
-                      <p className="text-sm text-gray-500">${item.price.toFixed(2)} each</p>
+                      <h3 className="font-medium text-gray-900">{item.name}</h3>
+                      <p className="text-sm text-gray-700">${item.price.toFixed(2)} each</p>
                       {item.store && (
-                        <p className="text-xs text-gray-400">From: {item.store}</p>
+                        <p className="text-xs text-gray-600">From: {item.store}</p>
                       )}
                     </div>
                     <div className="flex items-center space-x-2">
@@ -98,7 +98,7 @@ export default function CartSidebar() {
                       >
                         <FaMinus className="text-xs" />
                       </button>
-                      <span className="w-8 text-center">{item.quantity}</span>
+                      <span className="w-8 text-center text-gray-900">{item.quantity}</span>
                       <button
                         onClick={() => updateQuantity(item.id, item.quantity + 1)}
                         className="p-1 text-gray-500 hover:text-gray-700"
@@ -111,13 +111,13 @@ export default function CartSidebar() {
 
                 {/* Total */}
                 <div className="mt-6 pt-4 border-t">
-                  <div className="flex justify-between mb-2">
+                  <div className="flex justify-between mb-2 text-gray-800">
                     <span>Total Items:</span>
                     <span>{getTotalItems()}</span>
                   </div>
-                  <div className="flex justify-between mb-4">
-                    <span className="font-semibold">Total Price:</span>
-                    <span className="font-semibold">${getTotalPrice().toFixed(2)}</span>
+                  <div className="flex justify-between mb-4 text-gray-900">
+                    <span className="font-semibold text-gray-900">Total Price:</span>
+                    <span className="font-semibold text-gray-900">${getTotalPrice().toFixed(2)}</span>
                   </div>
                   <button
                     onClick={handleCheckout}
@@ -128,7 +128,7 @@ export default function CartSidebar() {
                 </div>
               </div>
             ) : (
-              <div className="text-center text-gray-500 mt-8">
+              <div className="text-center text-gray-700 mt-8">
                 Your cart is empty
               </div>
             )}

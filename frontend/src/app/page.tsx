@@ -52,7 +52,17 @@ export default function Home() {
           throw new Error('Failed to fetch products');
         }
         const data = await response.json();
-        setProducts(data);
+        // Remove duplicates by ID, keeping the latest version
+        const uniqueProducts = data.reduce((acc: Product[], product: Product) => {
+          const existingIndex = acc.findIndex(p => p.id === product.id);
+          if (existingIndex >= 0) {
+            acc[existingIndex] = product; // Replace with newer version
+          } else {
+            acc.push(product);
+          }
+          return acc;
+        }, []);
+        setProducts(uniqueProducts);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch products');
       } finally {
@@ -136,9 +146,11 @@ export default function Home() {
                 </span>
               )}
             </div>
-            <div>
-              <div className="text-sm text-gray-600">Cart Total:</div>
-              <div className="font-semibold">${getTotalPrice().toFixed(2)}</div>
+            <div className="flex items-center gap-2">
+              <div>
+                <div className="text-sm text-gray-900">Cart Total:</div>
+                <div className="font-semibold text-gray-900">${getTotalPrice().toFixed(2)}</div>
+              </div>
             </div>
           </div>
           <button
@@ -207,50 +219,52 @@ export default function Home() {
                 className="flex overflow-x-auto gap-6 pb-4 scrollbar-hide scroll-smooth"
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
               >
-                {isLoading ? (
-                  <div className="flex justify-center w-full py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                  </div>
-                ) : error ? (
-                  <div className="text-red-500 text-center w-full py-8">{error}</div>
-                ) : filteredProducts.length === 0 ? (
-                  <div className="text-gray-500 text-center w-full py-8">
-                    {searchQuery ? 'No products found matching your search' : 'No products available'}
-                  </div>
-                ) : (
-                  filteredProducts.map(product => (
-                  <div
-                    key={product.id}
-                    className="flex-none w-64 border rounded-lg p-4 hover:shadow-lg transition-shadow"
-                  >
-                    <div className="w-full h-40 bg-gray-100 rounded-lg mb-4 relative overflow-hidden">
-                      {product.image ? (
-                        <Image
-                          src={product.image}
-                          alt={product.name}
-                          fill
-                          style={{ objectFit: 'contain' }}
-                          className="p-2"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400">
-                          No Image
-                        </div>
-                      )}
+                <div className="flex flex-wrap gap-4 justify-start">
+                  {isLoading ? (
+                    <div key="loading" className="flex justify-center w-full py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-900"></div>
                     </div>
-                    <div className="font-medium text-gray-600 mb-2">{product.name}</div>
-                    <div className="text-sm text-gray-600 mb-2">{product.description}</div>
-                    <div className="text-lg font-semibold text-gray-800 mb-4">${product.price.toFixed(2)}</div>
-                    <button
-                      onClick={() => handleAddToCart(product)}
-                      className="flex items-center justify-center w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                    >
-                      <FaShoppingCart className="mr-2" />
-                      {cartItems[product.id] ? `Add More (${cartItems[product.id]})` : 'Add to Cart'}
-                    </button>
-                  </div>
-                  ))
-                )}
+                  ) : error ? (
+                    <div key="error" className="text-red-900 text-center w-full py-8">{error}</div>
+                  ) : filteredProducts.length === 0 ? (
+                    <div key="no-products" className="text-center text-gray-900">
+                      {searchQuery ? 'No products found matching your search' : 'No products available'}
+                    </div>
+                  ) : (
+                    filteredProducts.map(product => (
+                      <div
+                        key={product.id}
+                        className="flex-none w-64 border rounded-lg p-4 hover:shadow-lg transition-shadow"
+                      >
+                        <div className="w-full h-40 bg-gray-100 rounded-lg mb-4 relative overflow-hidden">
+                          {product.image ? (
+                            <Image
+                              src={product.image}
+                              alt={product.name}
+                              fill
+                              style={{ objectFit: 'contain' }}
+                              className="p-2"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-400">
+                              No Image
+                            </div>
+                          )}
+                        </div>
+                        <div className="font-medium text-gray-800 mb-2">{product.name}</div>
+                        <div className="text-sm text-gray-700 mb-2">{product.description}</div>
+                        <div className="text-lg font-semibold text-gray-900 mb-4">${product.price.toFixed(2)}</div>
+                        <button
+                          onClick={() => handleAddToCart(product)}
+                          className="flex items-center justify-center w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                        >
+                          <FaShoppingCart className="mr-2" />
+                          {cartItems[product.id] ? `Add More (${cartItems[product.id]})` : 'Add to Cart'}
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
 
               <button
@@ -267,7 +281,7 @@ export default function Home() {
                   <OrderCard key={order.id} order={order} />
                 ))
               ) : (
-                <div className="text-center text-gray-500">
+                <div key="no-orders" className="text-center text-gray-700">
                   No orders found
                 </div>
               )}
@@ -294,15 +308,15 @@ export default function Home() {
             }
 
             const productInfo = await response.json();
-            const newProduct: Product = {
-              id: `custom-${Date.now()}`,
+            console.log('Scraped product info:', productInfo);
+            // Create product object to send to backend
+            const newProduct = {
               name: productInfo.name,
               description: productInfo.description || '',
               price: productInfo.price,
-              image: productInfo.image || '',
+              image: productInfo.image_url || '',
               url: url,
-              store: url.includes('target.com') ? 'Target' : 'Trader Joes',
-              quantity: quantity
+              store: url.includes('target.com') ? 'Target' : 'Trader Joes'
             };
 
             // Add product to backend
@@ -317,8 +331,15 @@ export default function Home() {
             }
 
             const addedProduct = await addResponse.json();
-            setProducts(prev => [...prev, addedProduct]);
-            addItem(newProduct, quantity);
+            console.log('Added product:', addedProduct);
+            setProducts(prev => {
+              // Remove any existing product with the same ID
+              const filtered = prev.filter(p => p.id !== addedProduct.id);
+              // Add the new/updated product
+              return [...filtered, addedProduct];
+            });
+            console.log('Adding to cart:', addedProduct, 'quantity:', quantity);
+            addItem(addedProduct, quantity);
           } catch (error) {
             console.error('Error adding custom item:', error);
             // TODO: Show error toast/notification
