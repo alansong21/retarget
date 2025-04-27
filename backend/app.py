@@ -1,9 +1,13 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from dotenv import load_dotenv
 from app.routes.user_auth import auth_bp
 from app.models import db
 from app.config import Config
 from app.firebase_config import initialize_firebase
+
+# Load environment variables
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)  # This will enable CORS for all routes
