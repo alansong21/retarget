@@ -71,10 +71,8 @@ class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     buyer_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     store_name = db.Column(db.String(120), nullable=False)
-    item_list_json = db.Column(db.Text, nullable=False) # JSON string of items
-    delivery_location = db.Column(db.String(255), nullable=False)
-    service_fee = db.Column(db.Float, nullable=False)
-    carrier_reward = db.Column(db.Float, nullable=False)
+    items = db.Column(db.JSON, nullable=False)  # JSON array of items
+    delivery_address = db.Column(db.String(255), nullable=False)
     status = db.Column(db.String(20), default='open') # open, assigned, in_progress, ready_for_pickup, completed, cancelled, expired
     created_at = db.Column(db.DateTime, default=datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
