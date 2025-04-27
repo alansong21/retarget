@@ -44,3 +44,29 @@ def create_order():
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 400
+
+@orders_bp.route('/available', methods=['GET'])
+def get_available_orders():
+    try:
+        # Fetch all open orders that haven't expired
+        now = datetime.now(timezone.utc)
+        open_orders = Order.query.filter(
+            Order.status == 'open',
+            Order.expiry_time > now
+        ).all()
+
+        orders_list = []
+        for order in open_orders:
+            orders_list.append({
+                "order_id": order.id,
+                "store_name": order.store_name,
+                "items": order.items,  # Already in JSON format
+                "delivery_address": order.delivery_address,
+                "expiry_time": order.expiry_time.isoformat()
+            })
+
+        return jsonify(orders_list), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+        
