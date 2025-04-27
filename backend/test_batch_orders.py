@@ -1,4 +1,18 @@
-"""Test script for batch order creation endpoint."""
+"""# Test script for batch creating orders
+#
+# This script demonstrates the order creation flow with authentication:
+# 1. Logs in with test user credentials
+# 2. Gets a session cookie from login response
+# 3. Uses the session cookie for subsequent order creation requests
+#
+# Prerequisites:
+# - Server running on port 5001
+# - Database initialized with test user (email: test@example.com, password: password123)
+#
+# Usage:
+#   python3 test_batch_orders.py
+#
+# The script will prompt for which test case to run and handle authentication automatically."""
 
 import requests
 from pprint import pprint

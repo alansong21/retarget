@@ -7,6 +7,20 @@ auth_bp = Blueprint('auth', __name__)
 
 @auth_bp.route('/register', methods=['POST'])
 def register():
+    """Register a new user.
+    
+    Expects a JSON payload with the following fields:
+    - email: User's email address (must be unique)
+    - password: User's password (will be hashed)
+    - role: User role ('buyer' or 'carrier')
+    - display_name: User's display name
+    
+    Returns:
+        tuple: JSON response with user details and status code
+            201: User created successfully
+            400: Invalid request (missing fields)
+            409: Email already exists
+    """
     data = request.get_json()
     
     # Validate input
@@ -56,6 +70,23 @@ def register():
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
+    """Authenticate a user and create a session.
+    
+    Expects a JSON payload with:
+    - email: User's email address
+    - password: User's password
+    
+    On successful login:
+    1. Creates a session for the user
+    2. Sets a secure session cookie
+    3. Returns user details
+    
+    Returns:
+        tuple: JSON response with user details and status code
+            200: Login successful
+            401: Invalid credentials
+            400: Invalid request (missing fields)
+    """
     data = request.get_json()
     
     if not all(k in data for k in ['email', 'password']):

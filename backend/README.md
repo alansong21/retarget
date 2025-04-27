@@ -30,15 +30,72 @@ The server will run on `http://localhost:5001`.
 
 ## API Documentation
 
+### Authentication API
+
+#### Register User
+- **Endpoint**: `POST /auth/register`
+- **Description**: Register a new user
+- **Request Body**:
+  ```json
+  {
+    "email": "user@example.com",
+    "password": "password123",
+    "role": "buyer",
+    "display_name": "John Doe"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "message": "User registered successfully",
+    "user": {
+      "id": 1,
+      "email": "user@example.com",
+      "role": "buyer",
+      "display_name": "John Doe"
+    }
+  }
+  ```
+- **Status Codes**:
+  - 201: User created successfully
+  - 400: Invalid request
+  - 409: Email already exists
+
+#### Login
+- **Endpoint**: `POST /auth/login`
+- **Description**: Login with email and password
+- **Request Body**:
+  ```json
+  {
+    "email": "user@example.com",
+    "password": "password123"
+  }
+  ```
+- **Response**: Sets session cookie
+  ```json
+  {
+    "message": "Login successful",
+    "user": {
+      "id": 1,
+      "email": "user@example.com",
+      "role": "buyer",
+      "display_name": "John Doe"
+    }
+  }
+  ```
+- **Status Codes**:
+  - 200: Login successful
+  - 401: Invalid credentials
+  - 400: Invalid request
+
 ### Orders API
 
 #### Batch Create Orders
 - **Endpoint**: `POST /orders/batch_create`
-- **Description**: Create multiple orders from product URLs
+- **Description**: Create multiple orders from product URLs (requires authentication)
 - **Request Body**:
   ```json
   {
-    "buyer_id": 1,
     "delivery_address": "123 Test St, San Francisco, CA 94105",
     "products": [
       {
@@ -229,6 +286,14 @@ python3 check_orders.py
 - `check_orders.py`: View all orders and their current status
 - `add_test_user.py`: Add a test user with ID 1
 
+### Authentication
+
+The application uses Flask-Login for session-based authentication. Protected routes require a valid session cookie obtained through the login endpoint. Session cookies are automatically handled by the browser.
+
+1. **Register**: Create a new user account with email and password
+2. **Login**: Authenticate and receive a session cookie
+3. **Protected Routes**: Include the session cookie in subsequent requests
+
 ### Common Issues
 
 1. **Port Already in Use**
@@ -295,6 +360,15 @@ backend/
 - Represents both buyers and carriers in the system
 - Role-based access control ('buyer' or 'carrier')
 - Manages user authentication and profile information
+- Uses secure password hashing for authentication
+- Fields:
+  - `id`: Primary key
+  - `email`: Unique email address
+  - `password_hash`: Securely hashed password
+  - `role`: User role ('buyer' or 'carrier')
+  - `display_name`: User's display name
+  - `created_at`: Account creation timestamp
+  - `updated_at`: Last update timestamp
 
 ### Order
 - Represents delivery orders created by buyers
