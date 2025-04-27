@@ -43,3 +43,7 @@ python3 app.py
 cd frontend
 npm run dev
 ```
+
+
+TODO: 
+"To disable this UI completely, set devIndicators: false in your next.config file."
