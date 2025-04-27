@@ -1,5 +1,9 @@
 'use client';
 
+if (typeof window === 'undefined') {
+  throw new Error('This page can only be rendered in the browser');
+}
+
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -7,8 +11,15 @@ export default function SuccessPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Clear the cart here if needed
-    // You could call an API endpoint to update the order status
+    if (typeof window === 'undefined') return;
+    // Clear the cart and update order status
+    try {
+      // TODO: Call API to update order status
+      // Clear local cart
+      localStorage.removeItem('cart');
+    } catch (error) {
+      console.error('Error processing success:', error);
+    }
   }, []);
 
   return (

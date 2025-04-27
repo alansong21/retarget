@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { FaShoppingCart, FaTimes, FaPlus, FaMinus } from 'react-icons/fa';
 import { useCart } from '@/contexts/CartContext';
+import toast from 'react-hot-toast';
 
 export default function CartSidebar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -10,42 +11,48 @@ export default function CartSidebar() {
 
   const handleCheckout = async () => {
     try {
-      // Create order objects from cart items
-      const orders = Object.values(items).reduce((acc, item) => {
-        const store = item.store || 'Unknown';
-        if (!acc[store]) {
-          acc[store] = {
-            store,
-            items: [],
-          };
-        }
-        acc[store].items.push({
-          name: item.name,
-          url: item.url,
-          quantity: item.quantity,
-        });
-        return acc;
-      }, {} as Record<string, { store: string; items: { name: string; url?: string; quantity: number }[] }>);
+      // Create line items from cart items
+      // Filter out items with invalid prices and create line items
+      const lineItems = Object.values(items)
+        .filter(item => item.price > 0)
+        .map(item => ({
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: item.name,
+              description: `From ${item.store || 'Unknown'}`,
+              images: item.image ? [item.image] : undefined
+            },
+            unit_amount: Math.round(item.price * 100) // Convert to cents
+          },
+          quantity: item.quantity
+        }));
 
-      // Submit orders to backend
-      const response = await fetch('/api/orders/batch', {
+      if (lineItems.length === 0) {
+        toast.error('No valid items in cart. Please check item prices.');
+        return;
+      }
+
+      // Create Stripe checkout session
+      const response = await fetch('/api/checkout/create-session', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ orders: Object.values(orders) }),
+        body: JSON.stringify({ items: lineItems }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create orders');
+        throw new Error('Failed to create checkout session');
       }
 
-      // Clear cart after successful checkout
-      clearCart();
-      setIsOpen(false);
+      const { url } = await response.json();
+      
+      // Redirect to Stripe checkout
+      window.location.href = url;
     } catch (error) {
       console.error('Error during checkout:', error);
-      // TODO: Show error toast/notification
+      toast.error('Failed to start checkout. Please try again.');
     }
   };
 

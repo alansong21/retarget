@@ -4,103 +4,21 @@ import Image from "next/image";
 import { useState, useRef, useEffect } from 'react';
 import { FaSearch, FaShoppingCart, FaChevronLeft, FaChevronRight, FaUser } from 'react-icons/fa';
 import { useCart, useAuth } from '../contexts';
+import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
+import OrderCard from '../components/OrderCard';
+import AddItemModal from '../components/AddItemModal';
+import CartSidebar from '../components/CartSidebar';
 import type { Product as ProductType, Order, CartItem } from '../types';
 
 type Product = Omit<ProductType, 'store'> & {
   store: 'Target' | 'Trader Joes' | undefined;
 };
 
-import toast from 'react-hot-toast';
-import OrderCard from '../components/OrderCard';
-import AddItemModal from '../components/AddItemModal';
-import CartSidebar from '../components/CartSidebar';
-import { useRouter } from 'next/navigation';
-
-const sampleProducts: Product[] = [
-  {
-    id: '1',
-    name: 'Sample Product 1',
-    description: 'This is a sample product',
-    price: 19.99,
-    image: 'https://via.placeholder.com/150',
-    store: 'Target',
-    url: 'https://target.com/sample1'
-  },
-  {
-    id: '2',
-    name: 'Sample Product 2',
-    description: 'Another sample product',
-    price: 29.99,
-    image: 'https://via.placeholder.com/150',
-    store: 'Target',
-    url: 'https://target.com/sample2'
-  },
-  {
-    id: '3',
-    name: 'Organic Milk',
-    description: '1 gallon of organic whole milk',
-    price: 0,
-    image: '/products/milk.jpg',
-    store: 'Target'
-  },
-  {
-    id: '4',
-    name: 'Fresh Eggs',
-    description: 'Farm fresh eggs, dozen',
-    price: 3.99,
-    image: '/products/eggs.jpg',
-    store: 'Trader Joes'
-  },
-  {
-    id: '5',
-    name: 'Chicken Breast',
-    description: 'Boneless skinless chicken breast',
-    price: 8.99,
-    image: '/products/chicken.jpg',
-    store: 'Target'
-  },
-];
-
-const mockOrders: Order[] = [
-  { 
-    id: '12345',
-    store: 'Target',
-    items: [
-      { name: 'Organic Milk', quantity: 2, url: 'https://target.com/milk' },
-      { name: 'Fresh Eggs', quantity: 1, url: 'https://target.com/eggs' }
-    ],
-    status: 'pending',
-    total: 23.97,
-    createdAt: new Date().toISOString()
-  },
-  { 
-    id: '12346',
-    store: 'Trader Joes',
-    items: [
-      { name: 'Bananas', quantity: 3, url: 'https://traderjoes.com/bananas' },
-      { name: 'Bread', quantity: 2, url: 'https://traderjoes.com/bread' }
-    ],
-    status: 'accepted',
-    total: 15.95,
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-  },
-  { 
-    id: '12347',
-    store: 'Target',
-    items: [
-      { name: 'Paper Towels', quantity: 1, url: 'https://target.com/paper-towels' },
-      { name: 'Dish Soap', quantity: 2, url: 'https://target.com/dish-soap' }
-    ],
-    status: 'completed',
-    total: 18.47,
-    createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
-  }
-];
-
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'buy' | 'fulfill'>('buy');
-  const [orders, setOrders] = useState<Order[]>(mockOrders);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [orderFilter, setOrderFilter] = useState<'all' | 'pending' | 'accepted'>('all');
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -208,28 +126,66 @@ export default function Home() {
     toast.success(`Added ${product.name} to cart`);
   };
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
+    console.log('Checkout clicked, cart items:', cartItems);
+    
     if (!user) {
       toast.error('Please log in to checkout');
       return;
     }
 
-    const checkoutItems = Object.entries(cartItems).map(([productId, item]: [string, CartItem]) => ({
-      id: productId,
-      name: item.name,
-      price: item.price,
-      quantity: item.quantity
-    }));
-    // If user is authenticated, proceed to checkout
-    const params = new URLSearchParams();
-    params.set('items', JSON.stringify(checkoutItems));
-    params.set('total', getTotalPrice().toFixed(2));
-    window.location.href = `/checkout?${params.toString()}`;
+    if (Object.keys(cartItems).length === 0) {
+      toast.error('Your cart is empty');
+      return;
+    }
 
-    // You can implement the checkout logic here
-    console.log('Checking out with items:', cartItems);
-    // Reset cart after checkout
-    clearCart();
+    try {
+      const lineItems = Object.values(cartItems).map(item => {
+        const productData: any = {
+          name: item.name,
+          description: `From ${item.store || 'Unknown'}`
+        };
+        
+        // Only add images if there's a valid image URL
+        if (item.image && item.image.trim() !== '') {
+          productData.images = [item.image];
+        }
+
+        return {
+          price_data: {
+            currency: 'usd',
+            product_data: productData,
+            unit_amount: Math.round(item.price * 100) // Convert to cents
+          },
+          quantity: item.quantity
+        };
+      });
+
+      const response = await fetch('/api/checkout/create-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          items: lineItems,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create checkout session');
+      }
+
+      const { url } = await response.json();
+      window.location.href = url;
+    } catch (error) {
+      console.error('Checkout error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to start checkout process');
+      // Clear cart if there are invalid items
+      if (error instanceof Error && error.message.includes('No valid items')) {
+        clearCart();
+      }
+    }
   };
 
   return (
@@ -287,11 +243,17 @@ export default function Home() {
             </div>
           </div>
           <button
-            onClick={handleCheckout}
-            disabled={getTotalItems() === 0}
+            onClick={(e) => {
+              e.preventDefault();
+              if (getTotalItems() > 0) {
+                handleCheckout();
+              } else {
+                toast.error('Your cart is empty');
+              }
+            }}
             className="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Checkout
+            Checkout ({getTotalItems()} items)
           </button>
         </div>
 
