@@ -4,9 +4,11 @@ This module initializes the Flask application and its extensions.
 It sets up the database, migrations, and registers all blueprints.
 """
 
-from flask import Flask
+from flask import Flask, jsonify
+from flask_cors import CORS
 from app.models import db
 from flask_migrate import Migrate
+from werkzeug.exceptions import HTTPException
 
 def create_app():
     """Create and configure the Flask application.
@@ -20,6 +22,12 @@ def create_app():
     """
     app = Flask(__name__)
     app.config.from_object('config.Config')
+    CORS(app)
+    
+    # Error handler for all HTTP exceptions
+    @app.errorhandler(HTTPException)
+    def handle_exception(e):
+        return jsonify(error=str(e)), e.code
 
     db.init_app(app)
     migrate = Migrate(app, db)
