@@ -43,6 +43,13 @@ python app.py
 cd frontend
 npm run dev
 ```
+4. Set up Stripe
+Edit the `.env.local` file in the root directory of the frontend project. Add the following content:
+```
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=your_stripe_publishable_key
+STRIPE_SECRET_KEY=your_stripe_secret_key
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
+```
 
 TODO: 
 "To disable this UI completely, set devIndicators: false in your next.config file."

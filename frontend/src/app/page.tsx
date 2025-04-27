@@ -119,10 +119,24 @@ export default function Home() {
   };
 
   const handleCheckout = () => {
-    // You can implement the checkout logic here
-    console.log('Checking out with items:', cartItems);
-    // Reset cart after checkout
-    setCartItems({});
+    // Prepare cart items for checkout
+    const items = Object.entries(cartItems).map(([productId, quantity]) => {
+      const product = products.find(p => p.id === productId);
+      return {
+        id: productId,
+        name: product?.name || '',
+        price: product?.price || 0,
+        quantity,
+      };
+    });
+
+    // Create query parameters
+    const params = new URLSearchParams();
+    params.set('items', JSON.stringify(items));
+    params.set('total', getTotalPrice().toFixed(2));
+
+    // Redirect to checkout page
+    window.location.href = `/checkout?${params.toString()}`;
   };
 
   return (
@@ -140,31 +154,6 @@ export default function Home() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Cart Summary */}
-        <div className="flex justify-between items-center mb-6 bg-white rounded-lg shadow p-4">
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <FaShoppingCart className="text-2xl text-gray-600" />
-              {getTotalItems() > 0 && (
-                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                  {getTotalItems()}
-                </span>
-              )}
-            </div>
-            <div>
-              <div className="text-sm text-gray-600">Cart Total:</div>
-              <div className="font-semibold">${getTotalPrice().toFixed(2)}</div>
-            </div>
-          </div>
-          <button
-            onClick={handleCheckout}
-            disabled={getTotalItems() === 0}
-            className="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Checkout
-          </button>
-        </div>
-
         {/* Tab Navigation */}
         <div className="flex space-x-4 mb-6">
           <button
@@ -188,7 +177,7 @@ export default function Home() {
           </div>
           <input
             type="text"
-            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-500 placeholder-gray-500"
             placeholder={activeTab === 'buy' ? 'Search for products...' : 'Search available orders...'}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -198,51 +187,78 @@ export default function Home() {
         {/* Content Area */}
         <div className="bg-white rounded-lg shadow p-6">
           {activeTab === 'buy' ? (
-            <div className="relative">
-              <button
-                onClick={() => scroll('left')}
-                className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/80 p-2 rounded-full shadow hover:bg-white"
-              >
-                <FaChevronLeft className="text-gray-600" />
-              </button>
-              
-              <div
-                ref={sliderRef}
-                className="flex overflow-x-auto gap-6 pb-4 scrollbar-hide scroll-smooth"
-                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-              >
-                {filteredProducts.map(product => (
-                  <div
-                    key={product.id}
-                    className="flex-none w-64 border rounded-lg p-4 hover:shadow-lg transition-shadow"
-                  >
-                    <div className="w-full h-40 bg-gray-100 rounded-lg mb-4">
-                      {/* Add actual product images here */}
-                      <div className="w-full h-full flex items-center justify-center text-gray-400">
-                        Product Image
-                      </div>
-                    </div>
-                    <div className="font-medium text-gray-600 mb-2">{product.name}</div>
-                    <div className="text-sm text-gray-600 mb-2">{product.description}</div>
-                    <div className="text-lg font-semibold text-gray-800 mb-4">${product.price.toFixed(2)}</div>
-                    <button
-                      onClick={() => addToCart(product.id)}
-                      className="flex items-center justify-center w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            <>
+              {/* Product Slider */}
+              <div className="relative mb-8">
+                <button
+                  onClick={() => scroll('left')}
+                  className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/80 p-2 rounded-full shadow hover:bg-white"
+                >
+                  <FaChevronLeft className="text-gray-600" />
+                </button>
+                
+                <div
+                  ref={sliderRef}
+                  className="flex overflow-x-auto gap-6 pb-4 scrollbar-hide scroll-smooth"
+                  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                >
+                  {filteredProducts.map(product => (
+                    <div
+                      key={product.id}
+                      className="flex-none w-64 border rounded-lg p-4 hover:shadow-lg transition-shadow"
                     >
-                      <FaShoppingCart className="mr-2" />
-                      {cartItems[product.id] ? `Add More (${cartItems[product.id]})` : 'Add to Cart'}
-                    </button>
-                  </div>
-                ))}
+                      <div className="w-full h-40 bg-gray-100 rounded-lg mb-4">
+                        <div className="w-full h-full flex items-center justify-center text-gray-400">
+                          Product Image
+                        </div>
+                      </div>
+                      <div className="font-medium text-gray-600 mb-2">{product.name}</div>
+                      <div className="text-sm text-gray-600 mb-2">{product.description}</div>
+                      <div className="text-lg font-semibold text-gray-800 mb-4">${product.price.toFixed(2)}</div>
+                      <button
+                        onClick={() => addToCart(product.id)}
+                        className="flex items-center justify-center w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                      >
+                        <FaShoppingCart className="mr-2" />
+                        {cartItems[product.id] ? `Add More (${cartItems[product.id]})` : 'Add to Cart'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => scroll('right')}
+                  className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/80 p-2 rounded-full shadow hover:bg-white"
+                >
+                  <FaChevronRight className="text-gray-600" />
+                </button>
               </div>
 
-              <button
-                onClick={() => scroll('right')}
-                className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/80 p-2 rounded-full shadow hover:bg-white"
-              >
-                <FaChevronRight className="text-gray-600" />
-              </button>
-            </div>
+              {/* Cart Summary */}
+              <div className="flex justify-between items-center bg-white rounded-lg shadow p-4">
+                <div className="flex items-center space-x-4">
+                  <div className="relative">
+                    <FaShoppingCart className="text-2xl text-gray-600" />
+                    {getTotalItems() > 0 && (
+                      <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                        {getTotalItems()}
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-600">Cart Total:</div>
+                    <div className="font-semibold">${getTotalPrice().toFixed(2)}</div>
+                  </div>
+                </div>
+                <button
+                  onClick={handleCheckout}
+                  disabled={getTotalItems() === 0}
+                  className="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Checkout
+                </button>
+              </div>
+            </>
           ) : (
             <div className="space-y-4">
               {filteredOrders.length > 0 ? (
