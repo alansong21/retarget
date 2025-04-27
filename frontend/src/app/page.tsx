@@ -4,6 +4,9 @@ import Image from "next/image";
 import { useState, useRef, useEffect } from 'react';
 import { FaSearch, FaShoppingCart, FaChevronLeft, FaChevronRight, FaUser } from 'react-icons/fa';
 import OrderCard from '@/components/OrderCard';
+import AddItemModal from '@/components/AddItemModal';
+import CartSidebar from '@/components/CartSidebar';
+import { useCart } from '@/contexts/CartContext';
 
 interface Order {
   id: string;
@@ -18,45 +21,12 @@ interface Product {
   description: string;
   price: number;
   image: string;
+  url?: string;
+  store?: 'Target' | 'Trader Joes';
+  quantity?: number;
 }
 
-const sampleProducts: Product[] = [
-  {
-    id: '1',
-    name: 'Fresh Apples',
-    description: 'Crisp and juicy red apples',
-    price: 2.99,
-    image: '/products/apple.jpg'
-  },
-  {
-    id: '2',
-    name: 'Whole Grain Bread',
-    description: 'Freshly baked whole grain bread',
-    price: 4.99,
-    image: '/products/bread.jpg'
-  },
-  {
-    id: '3',
-    name: 'Organic Milk',
-    description: '1 gallon of organic whole milk',
-    price: 5.99,
-    image: '/products/milk.jpg'
-  },
-  {
-    id: '4',
-    name: 'Fresh Eggs',
-    description: 'Farm fresh eggs, dozen',
-    price: 3.99,
-    image: '/products/eggs.jpg'
-  },
-  {
-    id: '5',
-    name: 'Chicken Breast',
-    description: 'Boneless skinless chicken breast',
-    price: 8.99,
-    image: '/products/chicken.jpg'
-  },
-];
+
 
 const mockOrders: Order[] = [
   { id: '12345', store: 'Store 1', items: ['Item 1', 'Item 2'], status: 'pending' },
@@ -70,8 +40,30 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('buy');
   const [orders] = useState<Order[]>(mockOrders);
-  const [products, setProducts] = useState<Product[]>(sampleProducts);
-  const [cartItems, setCartItems] = useState<{[key: string]: number}>({}); // product id -> quantity
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const response = await fetch('/api/products');
+        if (!response.ok) {
+          throw new Error('Failed to fetch products');
+        }
+        const data = await response.json();
+        setProducts(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch products');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+  const { items: cartItems, addItem, getTotalItems, getTotalPrice } = useCart();
+  const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false);
   const sliderRef = useRef<HTMLDivElement>(null);
 
   const filteredOrders = orders.filter(order =>
@@ -100,29 +92,19 @@ export default function Home() {
     }
   };
 
-  const addToCart = (productId: string) => {
-    setCartItems(prev => ({
-      ...prev,
-      [productId]: (prev[productId] || 0) + 1
-    }));
+  const handleAddToCart = (product: Product) => {
+    addItem(product, 1);
   };
 
-  const getTotalItems = () => {
-    return Object.values(cartItems).reduce((sum, quantity) => sum + quantity, 0);
-  };
 
-  const getTotalPrice = () => {
-    return Object.entries(cartItems).reduce((sum, [productId, quantity]) => {
-      const product = products.find(p => p.id === productId);
-      return sum + (product ? product.price * quantity : 0);
-    }, 0);
-  };
+
+  const { clearCart } = useCart();
 
   const handleCheckout = () => {
     // You can implement the checkout logic here
     console.log('Checking out with items:', cartItems);
     // Reset cart after checkout
-    setCartItems({});
+    clearCart();
   };
 
   return (
@@ -132,9 +114,12 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex justify-between items-center">
             <h1 className="text-2xl font-bold text-gray-900">Grabbit</h1>
-            <button className="p-2 rounded-full hover:bg-gray-100">
-              <FaUser className="w-6 h-6 text-gray-600" />
-            </button>
+            <div className="flex items-center space-x-4">
+              <CartSidebar />
+              <button className="p-2 rounded-full hover:bg-gray-100">
+                <FaUser className="w-6 h-6 text-gray-600" />
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -165,20 +150,31 @@ export default function Home() {
           </button>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex space-x-4 mb-6">
-          <button
-            className={`px-4 py-2 rounded-lg ${activeTab === 'buy' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'}`}
-            onClick={() => setActiveTab('buy')}
-          >
-            Buy Products
-          </button>
-          <button
-            className={`px-4 py-2 rounded-lg ${activeTab === 'fulfill' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'}`}
-            onClick={() => setActiveTab('fulfill')}
-          >
-            Fulfill Orders
-          </button>
+        {/* Tab Navigation and Add Item Button */}
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex space-x-4">
+            <button
+              className={`px-4 py-2 rounded-lg ${activeTab === 'buy' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'}`}
+              onClick={() => setActiveTab('buy')}
+            >
+              Buy Products
+            </button>
+            <button
+              className={`px-4 py-2 rounded-lg ${activeTab === 'fulfill' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'}`}
+              onClick={() => setActiveTab('fulfill')}
+            >
+              Fulfill Orders
+            </button>
+          </div>
+          {activeTab === 'buy' && (
+            <button
+              onClick={() => setIsAddItemModalOpen(true)}
+              className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center"
+            >
+              <span className="mr-2">+</span>
+              Add Custom Item
+            </button>
+          )}
         </div>
 
         {/* Search Bar */}
@@ -211,29 +207,50 @@ export default function Home() {
                 className="flex overflow-x-auto gap-6 pb-4 scrollbar-hide scroll-smooth"
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
               >
-                {filteredProducts.map(product => (
+                {isLoading ? (
+                  <div className="flex justify-center w-full py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                  </div>
+                ) : error ? (
+                  <div className="text-red-500 text-center w-full py-8">{error}</div>
+                ) : filteredProducts.length === 0 ? (
+                  <div className="text-gray-500 text-center w-full py-8">
+                    {searchQuery ? 'No products found matching your search' : 'No products available'}
+                  </div>
+                ) : (
+                  filteredProducts.map(product => (
                   <div
                     key={product.id}
                     className="flex-none w-64 border rounded-lg p-4 hover:shadow-lg transition-shadow"
                   >
-                    <div className="w-full h-40 bg-gray-100 rounded-lg mb-4">
-                      {/* Add actual product images here */}
-                      <div className="w-full h-full flex items-center justify-center text-gray-400">
-                        Product Image
-                      </div>
+                    <div className="w-full h-40 bg-gray-100 rounded-lg mb-4 relative overflow-hidden">
+                      {product.image ? (
+                        <Image
+                          src={product.image}
+                          alt={product.name}
+                          fill
+                          style={{ objectFit: 'contain' }}
+                          className="p-2"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400">
+                          No Image
+                        </div>
+                      )}
                     </div>
                     <div className="font-medium text-gray-600 mb-2">{product.name}</div>
                     <div className="text-sm text-gray-600 mb-2">{product.description}</div>
                     <div className="text-lg font-semibold text-gray-800 mb-4">${product.price.toFixed(2)}</div>
                     <button
-                      onClick={() => addToCart(product.id)}
+                      onClick={() => handleAddToCart(product)}
                       className="flex items-center justify-center w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
                     >
                       <FaShoppingCart className="mr-2" />
                       {cartItems[product.id] ? `Add More (${cartItems[product.id]})` : 'Add to Cart'}
                     </button>
                   </div>
-                ))}
+                  ))
+                )}
               </div>
 
               <button
@@ -258,6 +275,56 @@ export default function Home() {
           )}
         </div>
       </main>
+
+      {/* Add Item Modal */}
+      <AddItemModal
+        isOpen={isAddItemModalOpen}
+        onClose={() => setIsAddItemModalOpen(false)}
+        onAdd={async (url: string, quantity: number) => {
+          try {
+            // TODO: Call backend API to get product info
+            const response = await fetch('/api/scrape-product', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url })
+            });
+
+            if (!response.ok) {
+              throw new Error('Failed to fetch product info');
+            }
+
+            const productInfo = await response.json();
+            const newProduct: Product = {
+              id: `custom-${Date.now()}`,
+              name: productInfo.name,
+              description: productInfo.description || '',
+              price: productInfo.price,
+              image: productInfo.image || '',
+              url: url,
+              store: url.includes('target.com') ? 'Target' : 'Trader Joes',
+              quantity: quantity
+            };
+
+            // Add product to backend
+            const addResponse = await fetch('/api/products/add', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(newProduct)
+            });
+
+            if (!addResponse.ok) {
+              throw new Error('Failed to add product');
+            }
+
+            const addedProduct = await addResponse.json();
+            setProducts(prev => [...prev, addedProduct]);
+            addItem(newProduct, quantity);
+          } catch (error) {
+            console.error('Error adding custom item:', error);
+            // TODO: Show error toast/notification
+          }
+        }}
+      />
     </div>
   );
 }
