@@ -3,49 +3,96 @@
 import Image from "next/image";
 import { useState, useRef, useEffect } from 'react';
 import { FaSearch, FaShoppingCart, FaChevronLeft, FaChevronRight, FaUser } from 'react-icons/fa';
-import OrderCard from '@/components/OrderCard';
-import AddItemModal from '@/components/AddItemModal';
-import CartSidebar from '@/components/CartSidebar';
-import { useCart } from '@/contexts/CartContext';
+import { useCart, useAuth } from '../contexts';
+import type { Product as ProductType, Order, CartItem } from '../types';
 
-interface Order {
-  id: string;
-  store: string;
-  items: string[];
-  status: string;
-}
+type Product = Omit<ProductType, 'store'> & {
+  store: 'Target' | 'Trader Joes' | undefined;
+};
 
-interface Product {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  image: string;
-  url?: string;
-  store?: 'Target' | 'Trader Joes';
-  quantity?: number;
-}
+import toast from 'react-hot-toast';
+import OrderCard from '../components/OrderCard';
+import AddItemModal from '../components/AddItemModal';
+import CartSidebar from '../components/CartSidebar';
+import { useRouter } from 'next/navigation';
 
-
+const sampleProducts: Product[] = [
+  {
+    id: '1',
+    name: 'Sample Product 1',
+    description: 'This is a sample product',
+    price: 19.99,
+    image: 'https://via.placeholder.com/150',
+    store: 'Target',
+    url: 'https://target.com/sample1'
+  },
+  {
+    id: '2',
+    name: 'Sample Product 2',
+    description: 'Another sample product',
+    price: 29.99,
+    image: 'https://via.placeholder.com/150',
+    store: 'Target',
+    url: 'https://target.com/sample2'
+  },
+  {
+    id: '3',
+    name: 'Organic Milk',
+    description: '1 gallon of organic whole milk',
+    price: 0,
+    image: '/products/milk.jpg',
+    store: 'Target'
+  },
+  {
+    id: '4',
+    name: 'Fresh Eggs',
+    description: 'Farm fresh eggs, dozen',
+    price: 3.99,
+    image: '/products/eggs.jpg',
+    store: 'Trader Joes'
+  },
+  {
+    id: '5',
+    name: 'Chicken Breast',
+    description: 'Boneless skinless chicken breast',
+    price: 8.99,
+    image: '/products/chicken.jpg',
+    store: 'Target'
+  },
+];
 
 const mockOrders: Order[] = [
-  { id: '12345', store: 'Store 1', items: ['Item 1', 'Item 2'], status: 'pending' },
-  { id: '12346', store: 'Store 2', items: ['Item 3', 'Item 4'], status: 'pending' },
-  { id: '12347', store: 'Store 3', items: ['Item 5', 'Item 6'], status: 'pending' },
-  { id: '12348', store: 'Store 4', items: ['Item 7', 'Item 8'], status: 'pending' },
-  { id: '12349', store: 'Store 5', items: ['Item 9', 'Item 10'], status: 'pending' },
+  { id: '12345', store: 'Target', items: ['Item 1', 'Item 2'], status: 'pending' },
+  { id: '12346', store: 'Trader Joes', items: ['Item 3', 'Item 4'], status: 'pending' },
+  { id: '12347', store: 'Target', items: ['Item 5', 'Item 6'], status: 'pending' },
+  { id: '12348', store: 'Trader Joes', items: ['Item 7', 'Item 8'], status: 'pending' },
+  { id: '12349', store: 'Target', items: ['Item 9', 'Item 10'], status: 'pending' },
 ];
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState('buy');
+  const [activeTab, setActiveTab] = useState<'buy' | 'fulfill'>('buy');
   const [orders] = useState<Order[]>(mockOrders);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const sliderRef = useRef<HTMLDivElement>(null);
+  
+  const { user, signOut } = useAuth();
+  const { items: cartItems, addItem, getTotalItems, getTotalPrice, clearCart } = useCart();
+  const router = useRouter();
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.push('/auth');
+  };
 
   useEffect(() => {
-    const fetchProducts = async () => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = async () => {
       try {
         const response = await fetch('/api/products');
         if (!response.ok) {
@@ -70,23 +117,20 @@ export default function Home() {
       }
     };
 
-    fetchProducts();
-  }, []);
-  const { items: cartItems, addItem, getTotalItems, getTotalPrice } = useCart();
-  const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false);
-  const sliderRef = useRef<HTMLDivElement>(null);
+  const filteredOrders = orders.filter((order: Order) => {
+    const searchLower = searchQuery.toLowerCase();
+    return order.items.some((item: string) =>
+      item.toLowerCase().includes(searchLower)
+    );
+  });
 
-  const filteredOrders = orders.filter(order =>
-    order.store.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    order.items.some(item =>
-      item.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-  );
-
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.description.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredProducts = products.filter((product: Product) => {
+    const searchLower = searchQuery.toLowerCase();
+    return (
+      product.name.toLowerCase().includes(searchLower) ||
+      product.description.toLowerCase().includes(searchLower)
+    );
+  });
 
   const scroll = (direction: 'left' | 'right') => {
     if (sliderRef.current) {
@@ -94,7 +138,7 @@ export default function Home() {
       const newScrollLeft = direction === 'left'
         ? sliderRef.current.scrollLeft - scrollAmount
         : sliderRef.current.scrollLeft + scrollAmount;
-      
+
       sliderRef.current.scrollTo({
         left: newScrollLeft,
         behavior: 'smooth'
@@ -104,13 +148,27 @@ export default function Home() {
 
   const handleAddToCart = (product: Product) => {
     addItem(product, 1);
+    toast.success(`Added ${product.name} to cart`);
   };
 
-
-
-  const { clearCart } = useCart();
-
   const handleCheckout = () => {
+    if (!user) {
+      toast.error('Please log in to checkout');
+      return;
+    }
+
+    const checkoutItems = Object.entries(cartItems).map(([productId, item]: [string, CartItem]) => ({
+      id: productId,
+      name: item.name,
+      price: item.price,
+      quantity: item.quantity
+    }));
+    // If user is authenticated, proceed to checkout
+    const params = new URLSearchParams();
+    params.set('items', JSON.stringify(checkoutItems));
+    params.set('total', getTotalPrice().toFixed(2));
+    window.location.href = `/checkout?${params.toString()}`;
+
     // You can implement the checkout logic here
     console.log('Checking out with items:', cartItems);
     // Reset cart after checkout
@@ -120,21 +178,39 @@ export default function Home() {
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#FDFBEE' }}>
       {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <header className="bg-white shadow">
+        <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-gray-900">Grabbit</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Grabbit</h1>
             <div className="flex items-center space-x-4">
               <CartSidebar />
-              <button className="p-2 rounded-full hover:bg-gray-100">
-                <FaUser className="w-6 h-6 text-gray-600" />
-              </button>
+              {user ? (
+                <div className="flex items-center space-x-4">
+                  <span className="text-gray-700">{user.displayName || user.email}</span>
+                  <button
+                    onClick={handleSignOut}
+                    className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => router.push('/auth')}
+                  className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+                >
+                  Sign In
+                </button>
+              )}
             </div>
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+   
+        
+
         {/* Cart Summary */}
         <div className="flex justify-between items-center mb-6 bg-white rounded-lg shadow p-4">
           <div className="flex items-center space-x-4">
@@ -180,7 +256,7 @@ export default function Home() {
           </div>
           {activeTab === 'buy' && (
             <button
-              onClick={() => setIsAddItemModalOpen(true)}
+              onClick={() => setIsModalOpen(true)}
               className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center"
             >
               <span className="mr-2">+</span>
@@ -196,7 +272,7 @@ export default function Home() {
           </div>
           <input
             type="text"
-            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-gray-500 placeholder-gray-500"
             placeholder={activeTab === 'buy' ? 'Search for products...' : 'Search available orders...'}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -213,13 +289,7 @@ export default function Home() {
               >
                 <FaChevronLeft className="text-gray-600" />
               </button>
-              
-              <div
-                ref={sliderRef}
-                className="flex overflow-x-auto gap-6 pb-4 scrollbar-hide scroll-smooth"
-                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-              >
-                <div className="flex flex-wrap gap-4 justify-start">
+                <div className="flex overflow-x-auto space-x-4" ref={sliderRef}>
                   {isLoading ? (
                     <div key="loading" className="flex justify-center w-full py-8">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-900"></div>
@@ -259,21 +329,19 @@ export default function Home() {
                           className="flex items-center justify-center w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
                         >
                           <FaShoppingCart className="mr-2" />
-                          {cartItems[product.id] ? `Add More (${cartItems[product.id]})` : 'Add to Cart'}
+                          {cartItems[product.id]?.quantity ? `Add More (${cartItems[product.id].quantity})` : 'Add to Cart'}
                         </button>
                       </div>
                     ))
                   )}
                 </div>
+                <button
+                  onClick={() => scroll('right')}
+                  className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/80 p-2 rounded-full shadow hover:bg-white"
+                >
+                  <FaChevronRight className="text-gray-600" />
+                </button>
               </div>
-
-              <button
-                onClick={() => scroll('right')}
-                className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/80 p-2 rounded-full shadow hover:bg-white"
-              >
-                <FaChevronRight className="text-gray-600" />
-              </button>
-            </div>
           ) : (
             <div className="space-y-4">
               {filteredOrders.length > 0 ? (
@@ -281,7 +349,7 @@ export default function Home() {
                   <OrderCard key={order.id} order={order} />
                 ))
               ) : (
-                <div key="no-orders" className="text-center text-gray-700">
+                <div className="text-center text-gray-700">
                   No orders found
                 </div>
               )}
@@ -292,8 +360,8 @@ export default function Home() {
 
       {/* Add Item Modal */}
       <AddItemModal
-        isOpen={isAddItemModalOpen}
-        onClose={() => setIsAddItemModalOpen(false)}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
         onAdd={async (url: string, quantity: number) => {
           try {
             // TODO: Call backend API to get product info
